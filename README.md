@@ -1,6 +1,6 @@
 # FitTracker
 
-Web estática para registrar comidas, peso y medidas en una recomposición corporal, usando **Google Sheets como base de datos**. No requiere instalar dependencias.
+Web estática para registrar comidas, entrenamientos, peso y medidas en una recomposición corporal, usando **Google Sheets como base de datos**. No requiere instalar dependencias.
 
 Archivos: `index.html` (estructura), `styles.css` (estilos), `app.js` (lógica) y `Code.gs` (backend en Apps Script).
 
@@ -28,12 +28,17 @@ Cada hoja es una tabla: la fila 1 tiene los encabezados y cada fila siguiente es
 | `Registros` | `ID` | ID, Fecha (AAAA-MM-DD), Comida, AlimentoID, Alimento, Cantidad, Unidad, Kcal, Proteína (g), Carbohidratos (g), Grasas (g), Notas, CreadoEn, ActualizadoEn, Eliminado |
 | `Alimentos` | `ID` | ID, Nombre, Unidad (`g` o `unidad`), Kcal, Proteína (g), Carbohidratos (g), Grasas (g), Activo, ActualizadoEn |
 | `Peso` | `Fecha` | Fecha, Peso (kg), Cintura (cm), Grasa (%), Nota, ActualizadoEn, Eliminado |
+| `Rutina` | `ID` | ID, Sesión, Día, Orden, Ejercicio, Músculo, Series, Reps mín, Reps máx, RIR objetivo, Aproximación, Descanso / Técnica, Activo, ActualizadoEn |
+| `Series` | `ID` | ID, Fecha, Sesión, EjercicioID, Ejercicio, Serie, Peso (kg), Reps, RIR, Notas, CreadoEn, ActualizadoEn, Eliminado |
 | `Config` | `Clave` | Clave, Valor, Descripción |
 
 - **Alimentos:** los valores son por 100 g si la unidad es `g`, o por unidad si es `unidad`. Puedes añadir alimentos desde la web o directamente en la hoja. `Activo = FALSE` oculta un alimento sin afectar los registros anteriores.
 - **Registros:** guardan una copia de las kcal y macros del momento, así que editar un alimento no altera el historial.
-- **Borrado lógico:** eliminar un registro o un peso marca `Eliminado = TRUE` y conserva la fila.
-- **Config:** contiene `meta_kcal`, `meta_proteina`, `meta_carbohidratos`, `meta_grasas`, `altura_m`, `peso_inicial_kg` y `version_esquema` (no la edites).
+- **Rutina:** se crea con la rutina PPL + Torso/Pierna. Edítala en la hoja (ejercicios, series, rango de reps) y pulsa **Sincronizar**. `Activo = FALSE` quita un ejercicio. `Aproximación` usa el formato `50%×8 · 80%×3-4` (% del peso efectivo × reps) y la web calcula los kilos redondeando a 2.5 kg. Para añadir una sesión nueva, usa un nombre nuevo en `Sesión`.
+- **Series:** una fila por serie efectiva. La web sugiere la sesión según la semana (la primera que aún no hiciste), muestra lo que hiciste la última vez y aplica doble progresión: si todas las series llegaron al tope del rango de reps, sugiere subir 2.5 kg; si no, mantener el peso y sumar reps.
+- **Borrado lógico:** eliminar un registro, una serie o un peso marca `Eliminado = TRUE` y conserva la fila.
+- **Config:** contiene `meta_kcal`, `meta_proteina`, `meta_carbohidratos`, `meta_grasas`, `altura_m`, `peso_inicial_kg`, `meta_sesiones_semana` y `version_esquema` (no la edites).
+- **Rachas:** entreno = semanas seguidas (lunes a domingo) con al menos `meta_sesiones_semana` días entrenados, sin importar qué día; proteína = días seguidos llegando a `meta_proteina`. La semana o el día en curso no rompen la racha hasta que terminan.
 
 ## Sincronización
 

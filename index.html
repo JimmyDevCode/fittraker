@@ -19,6 +19,7 @@
     </div>
   </header>
   <p class="status" id="status" role="status"></p>
+  <div class="streaks" id="streaks"></div>
 
   <section class="panel">
     <div class="calendar-head">
@@ -27,7 +28,7 @@
       <button class="secondary" id="nextMonth" aria-label="Mes siguiente">›</button>
     </div>
     <div class="row" style="margin-top:12px">
-      <span class="muted desktop-only">Selecciona una fecha para registrar tus comidas</span>
+      <span class="muted desktop-only">Selecciona una fecha para registrar</span>
       <div class="row">
         <button class="secondary" id="today">Hoy</button>
         <button class="secondary" id="toggleCalendar" aria-controls="days"></button>
@@ -36,6 +37,32 @@
     <div class="days" id="days"></div>
   </section>
 
+  <nav class="tabs" role="tablist" aria-label="Secciones">
+    <button role="tab" id="tab-btn-nutricion" data-tab="nutricion" aria-controls="tab-nutricion">🍽️ Nutrición</button>
+    <button role="tab" id="tab-btn-entreno" data-tab="entreno" aria-controls="tab-entreno">🏋️ Entreno</button>
+  </nav>
+
+  <div class="tabpanel" id="tab-entreno" role="tabpanel" aria-labelledby="tab-btn-entreno" hidden>
+    <section class="panel">
+      <div class="row"><h2>🏋️ Entrenamiento</h2><span class="status" id="workoutLabel"></span></div>
+      <div class="sessions" id="sessions"></div>
+      <p class="hint" id="sessionHint"></p>
+      <p class="hint">Los números en gris son la sugerencia: si dejas un campo vacío y tocas ✓ (o Enter), se guarda ese valor.</p>
+    </section>
+    <div id="exercises"></div>
+    <details class="panel collapsible">
+      <summary><h2>📋 Rutina <small class="muted" id="routineCount"></small></h2></summary>
+      <p class="muted">Para cambiar ejercicios, series o reps edita la hoja <b>Rutina</b> en Google Sheets y pulsa Sincronizar. Pon <b>Activo</b> en FALSE para quitar un ejercicio.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Sesión</th><th>Ejercicio</th><th>Músculo</th><th>Series × reps</th><th>RIR</th><th>Aproximación</th></tr></thead>
+          <tbody id="routine"></tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <div class="tabpanel" id="tab-nutricion" role="tabpanel" aria-labelledby="tab-btn-nutricion">
   <div class="metrics" id="metrics"></div>
 
   <section class="panel">
@@ -71,23 +98,6 @@
     </div>
   </section>
 
-  <section class="panel">
-    <div class="row"><h2>⚖️ Peso y medidas</h2><span class="status" id="weightLabel"></span></div>
-    <form class="form auto" id="weightForm">
-      <div><label for="weight">Peso (kg)</label><input id="weight" type="number" step="0.1" min="20" max="400" required></div>
-      <div><label for="waist">Cintura (cm)</label><input id="waist" type="number" step="0.1" min="0" max="300" placeholder="Opcional · a la altura del ombligo"></div>
-      <div><label for="bodyFat">Grasa corporal (%)</label><input id="bodyFat" type="number" step="0.1" min="0" max="80" placeholder="Opcional"></div>
-      <div><label for="weightNote">Nota</label><input id="weightNote" maxlength="200" placeholder="Opcional · ej. en ayunas"></div>
-      <button type="submit">Guardar</button>
-    </form>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Fecha</th><th>Peso</th><th>Cambio</th><th>Cintura</th><th>Grasa</th><th>Nota</th><th></th></tr></thead>
-        <tbody id="weights"></tbody>
-      </table>
-    </div>
-  </section>
-
   <details class="panel collapsible">
     <summary><h2>🥗 Alimentos <small class="muted" id="foodCount"></small></h2></summary>
     <div><label for="foodSearch">Buscar alimento</label><input id="foodSearch" type="search" placeholder="Ej. pollo, avena…" autocomplete="off"></div>
@@ -118,9 +128,29 @@
       <div><label for="cfg-meta_grasas">Grasas (g)</label><input id="cfg-meta_grasas" type="number" min="0" step="1" required></div>
       <div><label for="cfg-altura_m">Altura (m)</label><input id="cfg-altura_m" type="number" min="1" max="2.5" step="0.01" required></div>
       <div><label for="cfg-peso_inicial_kg">Peso inicial (kg)</label><input id="cfg-peso_inicial_kg" type="number" min="20" max="400" step="0.1" required></div>
+      <div><label for="cfg-meta_sesiones_semana">Sesiones por semana (racha)</label><input id="cfg-meta_sesiones_semana" type="number" min="1" max="7" step="1" required></div>
       <button type="submit">Guardar metas</button>
     </form>
   </details>
+
+  </div>
+
+  <section class="panel">
+    <div class="row"><h2>⚖️ Peso y medidas</h2><span class="status" id="weightLabel"></span></div>
+    <form class="form auto" id="weightForm">
+      <div><label for="weight">Peso (kg)</label><input id="weight" type="number" step="0.1" min="20" max="400" required></div>
+      <div><label for="waist">Cintura (cm)</label><input id="waist" type="number" step="0.1" min="0" max="300" placeholder="Opcional · a la altura del ombligo"></div>
+      <div><label for="bodyFat">Grasa corporal (%)</label><input id="bodyFat" type="number" step="0.1" min="0" max="80" placeholder="Opcional"></div>
+      <div><label for="weightNote">Nota</label><input id="weightNote" maxlength="200" placeholder="Opcional · ej. en ayunas"></div>
+      <button type="submit">Guardar</button>
+    </form>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Fecha</th><th>Peso</th><th>Cambio</th><th>Cintura</th><th>Grasa</th><th>Nota</th><th></th></tr></thead>
+        <tbody id="weights"></tbody>
+      </table>
+    </div>
+  </section>
 
   <details class="panel collapsible" id="connPanel">
     <summary><h2>☁️ Google Sheets <small class="muted" id="connSummary"></small></h2></summary>

@@ -5,16 +5,16 @@ const LEGACY_KEY = 'fittracker-v1';
 const SETTINGS_KEY = 'fittracker-settings';
 const MEALS = ['Desayuno', 'Almuerzo', 'Merienda', 'Cena'];
 const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const TABLES = ['Alimentos', 'Config', 'Registros', 'Peso'];
-const KEY_FIELD = { Alimentos: 'id', Registros: 'id', Peso: 'date', Config: 'key' };
+const TABLES = ['Alimentos', 'Config', 'Registros', 'Peso', 'Rutina', 'Series'];
+const KEY_FIELD = { Alimentos: 'id', Registros: 'id', Peso: 'date', Config: 'key', Rutina: 'id', Series: 'id' };
 const MACROS = [
   { id: 'k', label: 'Calorías', unit: 'kcal', goal: 'meta_kcal' },
   { id: 'p', label: 'Proteína', unit: 'g', goal: 'meta_proteina' },
   { id: 'c', label: 'Carbohidratos', unit: 'g', goal: 'meta_carbohidratos' },
   { id: 'f', label: 'Grasas', unit: 'g', goal: 'meta_grasas' }
 ];
-const CONFIG_FIELDS = ['meta_kcal', 'meta_proteina', 'meta_carbohidratos', 'meta_grasas', 'altura_m', 'peso_inicial_kg'];
-const DEFAULT_CONFIG = { meta_kcal: 2200, meta_proteina: 160, meta_carbohidratos: 220, meta_grasas: 73, altura_m: 1.7, peso_inicial_kg: 87 };
+const CONFIG_FIELDS = ['meta_kcal', 'meta_proteina', 'meta_carbohidratos', 'meta_grasas', 'altura_m', 'peso_inicial_kg', 'meta_sesiones_semana'];
+const DEFAULT_CONFIG = { meta_kcal: 2200, meta_proteina: 160, meta_carbohidratos: 220, meta_grasas: 73, altura_m: 1.7, peso_inicial_kg: 87, meta_sesiones_semana: 4 };
 
 // Debe coincidir con DEFAULT_FOODS de Code.gs. El orden importa para migrar datos v1.
 // Valores por 100 g (unidad "g") o por unidad (unidad "unidad").
@@ -31,6 +31,40 @@ const DEFAULT_FOODS = [
   ['aceite-oliva', 'Aceite de oliva', 'g', 884, 0, 0, 100],
   ['verduras', 'Verduras variadas', 'g', 30, 2, 5, 0.3]
 ].map(([id, name, unit, k, p, c, f]) => ({ id, name, unit, k, p, c, f, active: true }));
+
+// Debe coincidir con DEFAULT_ROUTINE de Code.gs (solo se usa hasta conectar Google Sheets).
+const DEFAULT_ROUTINE = [
+  ['push-press-plano', 'Push', 'Lunes', 1, 'Press de pecho plano (Máquina o Banca)', 'Pecho', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Pesado y controlado (2 seg al bajar).'],
+  ['push-press-inclinado', 'Push', 'Lunes', 2, 'Press inclinado en máquina', 'Pecho', 3, 6, 8, '1–2', '75%×4', '2–3 min | Enfoque en pecho superior.'],
+  ['push-peck-deck', 'Push', 'Lunes', 3, 'Peck deck (Aperturas en máquina)', 'Pecho', 2, 8, 10, '0–1', '', '90 seg | Pausa de 1 segundo atrás donde el pecho se estira al máximo.'],
+  ['push-laterales', 'Push', 'Lunes', 4, 'Elevaciones laterales con mancuernas', 'Hombro Lateral', 3, 10, 12, '1', '50%×10', '90 seg | Estricto sin columpiar el torso.'],
+  ['push-triceps-polea', 'Push', 'Lunes', 5, 'Extensión de tríceps en polea (barra o cuerda)', 'Tríceps', 4, 8, 10, '1', '60%×6-8', '90 seg | Codos fijos a las costillas.'],
+  ['pull-jalon-prono', 'Pull', 'Martes', 1, 'Jalón al pecho (Agarre prono medio)', 'Espalda', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Barra a la clavícula tirando desde los codos, sin columpiarte.'],
+  ['pull-remo-apoyado', 'Pull', 'Martes', 2, 'Remo con pecho apoyado (Máquina o Banco)', 'Espalda', 3, 6, 8, '1–2', '75%×4', '2–3 min | Cero estrés lumbar.'],
+  ['pull-remo-polea', 'Pull', 'Martes', 3, 'Remo sentado en polea (Agarre neutro)', 'Espalda', 2, 8, 10, '1–2', '', '2 min | Estira los hombros adelante y tracciona hacia la cadera.'],
+  ['pull-peck-inverso', 'Pull', 'Martes', 4, 'Peck deck inverso (o Pájaros)', 'Hombro Posterior', 3, 10, 12, '1', '', '90 seg | Brazos casi rectos, sin juntar escápulas.'],
+  ['pull-curl', 'Pull', 'Martes', 5, 'Curl de bíceps con mancuernas (o Barra Z)', 'Bíceps', 2, 8, 10, '1', '60%×6', '90 seg | Supina la muñeca al subir; codos pegados.'],
+  ['pull-martillo', 'Pull', 'Martes', 6, 'Curl martillo con mancuernas', 'Bíceps', 2, 8, 10, '1', '', '90 seg | Agarre neutro.'],
+  ['piernaa-abduccion', 'Pierna A', 'Miércoles', 1, 'Abducción de cadera en máquina', 'Glúteo / Cadera', 3, 10, 12, '1', '50%×10', '90 seg | Activa el glúteo medio para evitar valgo en prensa.'],
+  ['piernaa-femoral', 'Pierna A', 'Miércoles', 2, 'Curl femoral sentado', 'Isquiotibiales', 3, 8, 10, '1–2', '60%×8', '2 min | Lubrica la rodilla y activa isquios.'],
+  ['piernaa-prensa', 'Pierna A', 'Miércoles', 3, 'Prensa de piernas 45° (Bilateral)', 'Cuádriceps', 3, 6, 8, '1–2', '50%×8 · 80%×4', '3 min | [ANTI-HOFFITIS] Pies de la mitad hacia arriba. PROHIBIDO bloquear rodillas.'],
+  ['piernaa-prensa-1p', 'Pierna A', 'Miércoles', 4, 'Prensa a 1 pierna (Unilateral)', 'Cuádriceps', 2, 8, 10, '1–2', '', '2 min | Reps por pierna. Rodilla alineada con el 2do dedo del pie.'],
+  ['piernaa-extension', 'Pierna A', 'Miércoles', 5, 'Extensión de cuádriceps (Rango protegido)', 'Cuádriceps', 3, 8, 10, '1', '50%×6', '90 seg | [ANTI-HOFFITIS] Detente a 20° de estirar del todo. Pausa 2 s.'],
+  ['piernaa-pantorrilla', 'Pierna A', 'Miércoles', 6, 'Pantorrillas sentado (o con micro-flexión)', 'Pantorrillas', 2, 10, 12, '1', '', '90 seg | Pausa de 2 seg abajo. No trabes las rodillas.'],
+  ['torso-press', 'Torso', 'Jueves', 1, 'Press inclinado o plano en máquina', 'Pecho', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Máxima intención y carga pesada.'],
+  ['torso-jalon-neutro', 'Torso', 'Jueves', 2, 'Jalón al pecho (Agarre neutro o cerrado)', 'Espalda', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | 2 aproximaciones rápidas para activar dorsales.'],
+  ['torso-remo-abierto', 'Torso', 'Jueves', 3, 'Remo sentado en máquina (Agarre abierto)', 'Espalda', 3, 8, 10, '1–2', '', '2 min | Codos a ~45°–60° del torso.'],
+  ['torso-laterales', 'Torso', 'Jueves', 4, 'Elevaciones laterales (Mancuerna o Polea)', 'Hombro Lateral', 3, 10, 12, '1', '', '90 seg | Controla la bajada.'],
+  ['torso-curl', 'Torso', 'Jueves', 5, 'Curl de bíceps (Predicador o Polea baja)', 'Bíceps', 3, 8, 10, '1', '60%×6', '90 seg | Puedes hacerlo en superserie con el tríceps.'],
+  ['torso-triceps-nuca', 'Torso', 'Jueves', 6, 'Extensión de tríceps tras nuca (Polea o Manc.)', 'Tríceps', 3, 8, 10, '1', '60%×6', '90 seg | Estira al máximo la cabeza larga.'],
+  ['piernab-rdl', 'Pierna B', 'Viernes', 1, 'Peso muerto rumano (Barra o Mancuernas)', 'Isquiotibiales', 3, 6, 8, '2', '50%×8 · 80%×4', '3 min | [ANTI-HOFFITIS] Micro-flexión fija (15°-20°). No hiperextiendas la rodilla.'],
+  ['piernab-hip-thrust', 'Pierna B', 'Viernes', 2, 'Hip thrust en máquina o con barra', 'Glúteo / Cadera', 3, 6, 8, '1–2', '70%×5', '2–3 min | Minibanda sobre las rodillas empujando hacia afuera.'],
+  ['piernab-femoral', 'Pierna B', 'Viernes', 3, 'Curl femoral (Tumbado o Sentado)', 'Isquiotibiales', 3, 8, 10, '1', '', '2 min | Aislamiento de isquios.'],
+  ['piernab-spanish-squat', 'Pierna B', 'Viernes', 4, 'Spanish Squat (con banda) o Prensa 1 pierna', 'Cuádriceps', 2, 8, 10, '2', '50%×6', '2 min | [ANTI-HOFFITIS] Tibia 100% vertical.'],
+  ['piernab-pantorrilla', 'Pierna B', 'Viernes', 5, 'Pantorrillas (Rango sin bloqueo)', 'Pantorrillas', 3, 10, 12, '1', '', '90 seg | 2 seg de pausa abajo sin trabar rodilla.'],
+  ['piernab-crunch', 'Pierna B', 'Viernes', 6, 'Crunch abdominal en polea + Plancha', 'Core / Abdomen', 2, 8, 12, '1', '', '60 seg | Core con carga progresiva.']
+].map(([id, session, day, order, name, muscle, sets, repsMin, repsMax, rirTarget, warmup, notes]) =>
+  ({ id, session, day, order, name, muscle, sets, repsMin, repsMax, rirTarget, warmup, notes, active: true }));
 
 // ---------- Utilidades ----------
 
@@ -67,7 +101,10 @@ const CALENDAR_KEY = 'fittracker-calendar-expanded';
 let calendarExpanded = localStorage.getItem(CALENDAR_KEY) === '1';
 
 const emptyPending = () => Object.fromEntries(TABLES.map(t => [t, {}]));
-const defaultDb = () => ({ entries: [], foods: DEFAULT_FOODS.map(f => ({ ...f })), weights: [], config: { ...DEFAULT_CONFIG } });
+const defaultDb = () => ({
+  entries: [], foods: DEFAULT_FOODS.map(f => ({ ...f })), weights: [], config: { ...DEFAULT_CONFIG },
+  routine: DEFAULT_ROUTINE.map(x => ({ ...x })), sets: []
+});
 
 function readJson(key) {
   const raw = localStorage.getItem(key);
@@ -107,6 +144,8 @@ function applyRow(table, row) {
   if (table === 'Config') db.config[row.key] = row.value;
   else if (table === 'Alimentos') upsertBy(db.foods, 'id', row, false);
   else if (table === 'Registros') upsertBy(db.entries, 'id', row, row.deleted);
+  else if (table === 'Rutina') upsertBy(db.routine, 'id', row, false);
+  else if (table === 'Series') upsertBy(db.sets, 'id', row, row.deleted);
   else upsertBy(db.weights, 'date', row, row.deleted);
 }
 
@@ -181,7 +220,10 @@ async function api(action, payload = {}) {
   } catch {
     throw new Error('respuesta inválida; revisa que el acceso de la implementación sea "Cualquier persona"');
   }
-  if (!data.ok) throw new Error(data.error || 'error desconocido');
+  if (!data.ok) {
+    const msg = data.error || 'error desconocido';
+    throw new Error(/Tabla desconocida/.test(msg) ? msg + ' (despliega una nueva versión del Apps Script)' : msg);
+  }
   return data;
 }
 
@@ -203,7 +245,10 @@ async function pull() {
     entries: data.entries,
     foods: data.foods.length ? data.foods : defaultDb().foods,
     weights: data.weights,
-    config: { ...DEFAULT_CONFIG, ...data.config }
+    config: { ...DEFAULT_CONFIG, ...data.config },
+    // Un backend sin actualizar no devuelve rutina/series: se conservan las locales.
+    routine: data.routine?.length ? data.routine : db.routine,
+    sets: data.sets || db.sets
   };
   TABLES.forEach(t => Object.values(pending[t]).forEach(row => applyRow(t, row)));
   persist();
@@ -265,9 +310,234 @@ function weekKeys() {
 
 const sortedWeights = () => [...db.weights].sort((a, b) => a.date.localeCompare(b.date));
 
+// ---------- Entrenamiento ----------
+
+const TAB_KEY = 'fittracker-tab';
+const WEIGHT_STEP = 2.5;
+let activeTab = localStorage.getItem(TAB_KEY) === 'entreno' ? 'entreno' : 'nutricion';
+const sessionPick = {}; // sesión elegida a mano por fecha (si aún no hay series)
+const drafts = {};      // valores escritos y aún no guardados, para no perderlos al re-renderizar
+const extraSets = {};   // filas extra añadidas con "+ Serie"
+
+const roundStep = w => Math.round(w / WEIGHT_STEP) * WEIGHT_STEP;
+const fmtKg = w => `${round1(w)} kg`;
+const shortDate = k => parseKey(k).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' });
+const activeRoutine = () => db.routine.filter(x => x.active !== false);
+const exercisesOf = session => activeRoutine().filter(x => x.session === session).sort((a, b) => (a.order || 0) - (b.order || 0));
+const setsOn = key => db.sets.filter(x => x.date === key);
+const setKey = (date, exId, n) => `${date}|${exId}|${n}`;
+
+function sessions() {
+  const byName = {};
+  activeRoutine().forEach(x => {
+    const day = DAY_NAMES.indexOf(x.day);
+    if (!(x.session in byName) || (day >= 0 && day < byName[x.session])) byName[x.session] = day >= 0 ? day : 99;
+  });
+  return Object.keys(byName).sort((a, b) => byName[a] - byName[b]).map(name => ({ name, day: byName[name] }));
+}
+
+// Sesión más frecuente entre las series del día.
+function loggedSession(key) {
+  const count = {};
+  setsOn(key).forEach(x => { count[x.session] = (count[x.session] || 0) + 1; });
+  return Object.keys(count).sort((a, b) => count[b] - count[a])[0] || null;
+}
+
+// Sugerencia: la primera sesión de la semana que aún no hiciste antes de esta fecha.
+function suggestedSession(key) {
+  const list = sessions();
+  if (!list.length) return null;
+  const done = new Set(weekKeys().filter(k => k < key).map(loggedSession).filter(Boolean));
+  const next = list.find(x => !done.has(x.name));
+  return (next || list.find(x => x.day === (parseKey(key).getDay() + 6) % 7) || list[0]).name;
+}
+
+function currentSession(key) {
+  return sessionPick[key] || loggedSession(key) || suggestedSession(key);
+}
+
+function lastPerformance(exId, beforeKey) {
+  const prev = db.sets.filter(x => x.exerciseId === exId && x.date < beforeKey);
+  if (!prev.length) return null;
+  const date = prev.reduce((m, x) => (x.date > m ? x.date : m), '');
+  return { date, sets: prev.filter(x => x.date === date).sort((a, b) => a.setNo - b.setNo) };
+}
+
+// Doble progresión: si todas las series llegaron al tope del rango, sube peso; si no, suma reps.
+function progression(ex, last) {
+  if (!last) return { weight: null, reps: ex.repsMin, text: `Primera vez: elige un peso que te deje RIR ${ex.rirTarget || '1–2'} en ${ex.repsMin}–${ex.repsMax} reps.`, cls: '' };
+  const top = Math.max(...last.sets.map(x => Number(x.weight) || 0));
+  const work = last.sets.filter(x => Number(x.weight) === top);
+  const allTop = work.length >= ex.sets && work.every(x => x.reps >= ex.repsMax);
+  if (allTop && top > 0) {
+    return { weight: top + WEIGHT_STEP, reps: ex.repsMin, text: `⬆️ Sube a ${fmtKg(top + WEIGHT_STEP)}: llegaste a ${ex.repsMax} reps en todas las series.`, cls: 'up' };
+  }
+  if (allTop) return { weight: top, reps: ex.repsMax, text: '⬆️ Llegaste al tope de reps: añade carga o dificultad.', cls: 'up' };
+  return { weight: top, reps: null, text: `🔄 Mantén ${fmtKg(top)} y busca +1 rep por serie hasta llegar a ${ex.repsMax}.`, cls: '' };
+}
+
+function warmupHtml(ex, weight) {
+  const steps = [...String(ex.warmup || '').matchAll(/(\d+(?:[.,]\d+)?)\s*%\s*[x×]\s*(\d+(?:\s*[-–]\s*\d+)?)/gi)];
+  if (!steps.length) return '';
+  const items = steps.map(([, pct, reps]) => {
+    const p = Number(pct.replace(',', '.'));
+    const load = weight > 0 ? `<b>${fmtKg(roundStep(weight * p / 100))}</b> × ${esc(reps)} reps <small class="muted">(${p}% de tu peso)</small>`
+      : `${esc(reps)} reps con el <b>${p}%</b> del peso que usarás`;
+    return `<li>${load}</li>`;
+  }).join('');
+  return `<div class="warmup"><b>🔥 Calentamiento antes de empezar</b> <small class="muted">· no cuenta como serie</small><ol>${items}</ol></div>`;
+}
+
+// Las notas tienen el formato "2–3 min | técnica"; la parte antes de "|" es el descanso.
+function splitNotes(notes) {
+  const [head, ...rest] = String(notes || '').split('|');
+  return rest.length && /\d\s*(min|seg|s)\b/i.test(head) ? { rest: head.trim(), tech: rest.join('|').trim() } : { rest: '', tech: String(notes || '').trim() };
+}
+
+function renderTabs() {
+  document.querySelectorAll('[data-tab]').forEach(b => {
+    const on = b.dataset.tab === activeTab;
+    b.setAttribute('aria-selected', String(on));
+    b.classList.toggle('active', on);
+  });
+  $('tab-nutricion').hidden = activeTab !== 'nutricion';
+  $('tab-entreno').hidden = activeTab !== 'entreno';
+}
+
+function renderWorkout() {
+  const key = dateKey(selectedDate);
+  const current = currentSession(key);
+  const logged = loggedSession(key);
+  const doneThisWeek = new Set(weekKeys().map(loggedSession).filter(Boolean));
+  $('workoutLabel').textContent = selectedDate.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('sessions').innerHTML = sessions().map(x =>
+    `<button class="chip${x.name === current ? ' active' : ''}" data-session="${esc(x.name)}" aria-pressed="${x.name === current}">` +
+    `${doneThisWeek.has(x.name) ? '✓ ' : ''}${esc(x.name)}</button>`).join('');
+
+  const exercises = current ? exercisesOf(current) : [];
+  const daySets = setsOn(key);
+  const target = exercises.reduce((n, ex) => n + (Number(ex.sets) || 0), 0);
+  const doneSets = daySets.filter(x => x.session === current).length;
+  $('sessionHint').textContent = !current ? 'No hay rutina. Revisa la hoja Rutina en Google Sheets.'
+    : logged === current ? `Sesión registrada: ${current} · ${doneSets}/${target} series.`
+    : logged ? `Viendo ${current} · este día ya tiene series de ${logged}.`
+    : `${sessionPick[key] ? 'Sesión elegida' : 'Te toca'}: ${current} · ${target} series. ¿Hoy haces otra? Tócala arriba. ✓ = ya hecha esta semana.`;
+
+  $('exercises').innerHTML = exercises.map((ex, i) => {
+    const last = lastPerformance(ex.id, key);
+    const prog = progression(ex, last);
+    const mine = daySets.filter(x => x.exerciseId === ex.id).sort((a, b) => a.setNo - b.setNo);
+    const rows = Math.max(Number(ex.sets) || 1, ...mine.map(x => x.setNo), 0) + (extraSets[key + '|' + ex.id] || 0);
+    const firstWeight = Number(mine[0]?.weight) || prog.weight;
+    const warm = warmupHtml(ex, firstWeight);
+    const notes = splitNotes(ex.notes);
+    const setRows = Array.from({ length: rows }, (_, idx) => {
+      const n = idx + 1;
+      const saved = mine.find(x => x.setNo === n);
+      const draft = drafts[setKey(key, ex.id, n)] || {};
+      const prevSet = last?.sets.find(x => x.setNo === n);
+      const phW = prog.weight ?? '';
+      const phR = prog.reps ?? (prevSet ? Math.min(prevSet.reps + 1, ex.repsMax) : ex.repsMin);
+      const val = f => esc(draft[f] ?? saved?.[f] ?? '');
+      return `<div class="set${saved ? ' saved' : ''}" data-ex="${esc(ex.id)}" data-n="${n}">` +
+        `<span class="set-n">${n}</span>` +
+        `<input data-f="weight" inputmode="decimal" aria-label="Peso serie ${n}" placeholder="${esc(phW)}" value="${val('weight')}">` +
+        `<input data-f="reps" inputmode="numeric" aria-label="Reps serie ${n}" placeholder="${esc(phR)}" value="${val('reps')}">` +
+        `<input data-f="rir" inputmode="numeric" aria-label="RIR serie ${n}" placeholder="RIR" value="${val('rir')}">` +
+        `<button class="${saved ? '' : 'secondary'}" data-save-set aria-label="${saved ? 'Actualizar' : 'Guardar'} serie ${n}">✓</button>` +
+        (saved ? `<button class="danger" data-del-set aria-label="Borrar serie ${n}">×</button>` : '<span></span>') + '</div>';
+    }).join('');
+    const lastText = last ? `Última vez (${shortDate(last.date)}): ${last.sets.map(x => `${round1(x.weight)}×${x.reps}`).join(' · ')}` : 'Sin registros anteriores';
+    return `<section class="panel exercise"><div class="row ex-head"><div><b>${i + 1}. ${esc(ex.name)}</b><br>` +
+      `<small class="muted">${esc(ex.muscle)} · ${esc(ex.sets)} × ${esc(ex.repsMin)}–${esc(ex.repsMax)} · RIR ${esc(ex.rirTarget || '—')}</small>` +
+      (notes.rest ? `<br><small class="rest">⏱️ Descanso ${esc(notes.rest)}</small>` : '') + '</div>' +
+      `<span class="badge${mine.length >= ex.sets ? ' done' : ''}">${mine.length}/${esc(ex.sets)}</span></div>` +
+      `<p class="ex-line muted">${esc(lastText)}</p><p class="ex-line tip ${prog.cls}">${esc(prog.text)}</p>` +
+      warm +
+      `<div class="sets"><div class="set head"><span>#</span><span>Peso (kg)</span><span>Reps</span><span>RIR</span><span></span><span></span></div>${setRows}</div>` +
+      `<div class="row ex-foot"><button class="secondary" data-add-set="${esc(ex.id)}">+ Serie</button>` +
+      (notes.tech ? `<details class="tech"><summary>Técnica</summary><p>${esc(notes.tech)}</p></details>` : '') + '</div></section>';
+  }).join('');
+
+  const list = [...activeRoutine()].sort((a, b) => sessions().findIndex(x => x.name === a.session) - sessions().findIndex(x => x.name === b.session) || (a.order || 0) - (b.order || 0));
+  $('routineCount').textContent = `(${list.length} ejercicios)`;
+  $('routine').innerHTML = list.map(x => `<tr><td>${esc(x.session)}</td><td>${esc(x.name)}</td><td>${esc(x.muscle)}</td>` +
+    `<td>${esc(x.sets)} × ${esc(x.repsMin)}–${esc(x.repsMax)}</td><td>${esc(x.rirTarget)}</td><td>${esc(x.warmup || '—')}</td></tr>`).join('');
+}
+
+function saveSet(row) {
+  const key = dateKey(selectedDate);
+  const ex = db.routine.find(x => x.id === row.dataset.ex);
+  if (!ex) return;
+  const n = Number(row.dataset.n);
+  const input = f => row.querySelector(`[data-f="${f}"]`);
+  // Campo vacío = usar el valor sugerido (placeholder), para registrar rápido en el gimnasio.
+  const read = f => numOrNull(input(f).value.trim() || (f === 'rir' ? '' : input(f).placeholder));
+  const weight = read('weight');
+  const reps = read('reps');
+  const rir = read('rir');
+  if (weight === null || !(weight >= 0)) { input('weight').focus(); return; }
+  if (reps === null || !(reps >= 0)) { input('reps').focus(); return; }
+  const existing = db.sets.find(x => x.date === key && x.exerciseId === ex.id && x.setNo === n);
+  delete drafts[setKey(key, ex.id, n)];
+  change('Series', {
+    ...(existing || {}), id: existing?.id || `${key}-${ex.id}-${n}`.slice(0, 64), date: key, session: ex.session,
+    exerciseId: ex.id, exercise: ex.name, setNo: n, weight, reps, rir, notes: existing?.notes || '', deleted: false
+  });
+}
+
+function deleteSet(row) {
+  const key = dateKey(selectedDate);
+  const s = db.sets.find(x => x.date === key && x.exerciseId === row.dataset.ex && x.setNo === Number(row.dataset.n));
+  if (s && confirm(`¿Borrar la serie ${s.setNo} de ${s.exercise}?`)) {
+    delete drafts[setKey(key, s.exerciseId, s.setNo)];
+    change('Series', { ...s, deleted: true });
+  }
+}
+
+function bindWorkoutEvents() {
+  document.querySelectorAll('[data-tab]').forEach(b => {
+    b.onclick = () => {
+      activeTab = b.dataset.tab;
+      localStorage.setItem(TAB_KEY, activeTab);
+      render();
+    };
+  });
+  $('sessions').onclick = e => {
+    const b = e.target.closest('[data-session]');
+    if (!b) return;
+    const key = dateKey(selectedDate);
+    sessionPick[key] = b.dataset.session;
+    renderWorkout();
+  };
+  $('exercises').onclick = e => {
+    const row = e.target.closest('.set[data-ex]');
+    if (e.target.closest('[data-save-set]') && row) saveSet(row);
+    if (e.target.closest('[data-del-set]') && row) deleteSet(row);
+    const add = e.target.closest('[data-add-set]');
+    if (add) {
+      const k = dateKey(selectedDate) + '|' + add.dataset.addSet;
+      extraSets[k] = (extraSets[k] || 0) + 1;
+      renderWorkout();
+    }
+  };
+  $('exercises').oninput = e => {
+    const row = e.target.closest('.set[data-ex]');
+    if (!row || !e.target.dataset.f) return;
+    const k = setKey(dateKey(selectedDate), row.dataset.ex, row.dataset.n);
+    drafts[k] = { ...(drafts[k] || {}), [e.target.dataset.f]: e.target.value };
+  };
+  $('exercises').onkeydown = e => {
+    const row = e.target.closest('.set[data-ex]');
+    if (e.key === 'Enter' && row && e.target.tagName === 'INPUT') { e.preventDefault(); saveSet(row); }
+  };
+}
+
 // ---------- Render ----------
 
 function render() {
+  renderTabs();
+  renderWorkout();
   renderHeader();
   renderCalendar();
   renderMetrics();
@@ -276,6 +546,49 @@ function render() {
   renderWeights();
   renderFoods();
   renderSummaries();
+  renderStreaks();
+}
+
+// Racha de entreno: semanas seguidas (lunes a domingo) con al menos N días entrenados.
+// Racha de proteína: días seguidos llegando a la meta.
+// El periodo en curso suma si ya se cumplió, pero no rompe la racha mientras no termine.
+function trainingStreak() {
+  const min = Number(db.config.meta_sesiones_semana) || DEFAULT_CONFIG.meta_sesiones_semana;
+  const days = new Set(db.sets.map(x => x.date));
+  const monday = d => addDays(d, -((d.getDay() + 6) % 7));
+  const countWeek = start => Array.from({ length: 7 }, (_, i) => dateKey(addDays(start, i))).filter(k => days.has(k)).length;
+  let week = monday(parseKey(dateKey(new Date())));
+  const thisWeek = countWeek(week);
+  let streak = thisWeek >= min ? 1 : 0;
+  const first = [...days].sort()[0];
+  for (week = addDays(week, -7); first && dateKey(addDays(week, 6)) >= first; week = addDays(week, -7)) {
+    if (countWeek(week) < min) break;
+    streak++;
+  }
+  return { streak, thisWeek, min };
+}
+
+function proteinStreak() {
+  const target = goal(MACROS[1]);
+  const byDate = {};
+  db.entries.forEach(e => { byDate[e.date] = (byDate[e.date] || 0) + (Number(e.p) || 0); });
+  const met = k => (byDate[k] || 0) >= target;
+  let d = parseKey(dateKey(new Date()));
+  const today = met(dateKey(d));
+  let streak = today ? 1 : 0;
+  for (d = addDays(d, -1); met(dateKey(d)); d = addDays(d, -1)) streak++;
+  return { streak, today, todayP: round1(byDate[dateKey(new Date())] || 0), target };
+}
+
+function renderStreaks() {
+  const t = trainingStreak();
+  const p = proteinStreak();
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  $('streaks').innerHTML =
+    `<div class="streak${t.streak ? ' on' : ''}"><b>🏋️ ${plural(t.streak, 'semana', 'semanas')}</b>` +
+    `<small>Esta semana: ${t.thisWeek}/${t.min} entrenos${t.thisWeek >= t.min ? ' ✓' : ''}</small></div>` +
+    `<div class="streak${p.streak ? ' on' : ''}"><b>🥩 ${plural(p.streak, 'día', 'días')}</b>` +
+    `<small>Proteína hoy: ${p.todayP}/${p.target} g${p.today ? ' ✓' : ''}</small></div>`;
 }
 
 function renderSummaries() {
@@ -308,8 +621,14 @@ function renderCalendar() {
   const selected = dateKey(selectedDate);
   const kcalByDate = {};
   db.entries.forEach(e => { kcalByDate[e.date] = (kcalByDate[e.date] || 0) + (Number(e.k) || 0); });
+  const training = activeTab === 'entreno';
   const dayButton = d => {
     const k = dateKey(d);
+    if (training) {
+      const session = loggedSession(k);
+      const cls = ['day', k === selected && 'active', k === today && 'today', session && 'has-data'].filter(Boolean).join(' ');
+      return `<button class="${cls}" data-date="${k}"><span>${d.getDate()}</span><small>${session ? esc(session) : '—'}</small></button>`;
+    }
     const has = k in kcalByDate;
     const cls = ['day', k === selected && 'active', k === today && 'today', has && 'has-data'].filter(Boolean).join(' ');
     return `<button class="${cls}" data-date="${k}"><span>${d.getDate()}</span><small>${has ? Math.round(kcalByDate[k]) + '<span class="unit"> kcal</span>' : '—'}</small></button>`;
@@ -523,6 +842,7 @@ function bindEvents() {
   $('copyPrev').onclick = copyPreviousDay;
   $('export').onclick = exportCsv;
   $('sync').onclick = sync;
+  bindWorkoutEvents();
 
   $('meals').onclick = e => {
     const edit = e.target.closest('[data-edit]');

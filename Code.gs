@@ -12,7 +12,7 @@
 // Las columnas se localizan por nombre de encabezado, así que puedes reordenarlas
 // o añadir columnas propias (fórmulas, comentarios) sin romper nada.
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MEALS = ['Desayuno', 'Almuerzo', 'Merienda', 'Cena'];
 const UNITS = ['g', 'unidad'];
 const MAX_RECORDS_PER_REQUEST = 500;
@@ -38,6 +38,21 @@ const TABLES = {
     fields: [['date', 'Fecha'], ['weight', 'Peso (kg)'], ['waist', 'Cintura (cm)'], ['bodyFat', 'Grasa (%)'],
       ['note', 'Nota'], ['updatedAt', 'ActualizadoEn'], ['deleted', 'Eliminado']]
   },
+  Rutina: {
+    key: 'id',
+    text: ['id', 'rirTarget', 'warmup', 'updatedAt'],
+    fields: [['id', 'ID'], ['session', 'Sesión'], ['day', 'Día'], ['order', 'Orden'], ['name', 'Ejercicio'],
+      ['muscle', 'Músculo'], ['sets', 'Series'], ['repsMin', 'Reps mín'], ['repsMax', 'Reps máx'],
+      ['rirTarget', 'RIR objetivo'], ['warmup', 'Aproximación'], ['notes', 'Descanso / Técnica'],
+      ['active', 'Activo'], ['updatedAt', 'ActualizadoEn']]
+  },
+  Series: {
+    key: 'id',
+    text: ['id', 'date', 'exerciseId', 'createdAt', 'updatedAt'],
+    fields: [['id', 'ID'], ['date', 'Fecha'], ['session', 'Sesión'], ['exerciseId', 'EjercicioID'],
+      ['exercise', 'Ejercicio'], ['setNo', 'Serie'], ['weight', 'Peso (kg)'], ['reps', 'Reps'], ['rir', 'RIR'],
+      ['notes', 'Notas'], ['createdAt', 'CreadoEn'], ['updatedAt', 'ActualizadoEn'], ['deleted', 'Eliminado']]
+  },
   Config: {
     key: 'key',
     text: ['key'],
@@ -45,7 +60,8 @@ const TABLES = {
   }
 };
 
-const NUMERIC = ['amount', 'k', 'p', 'c', 'f', 'weight', 'waist', 'bodyFat'];
+const NUMERIC = ['amount', 'k', 'p', 'c', 'f', 'weight', 'waist', 'bodyFat', 'order', 'sets', 'repsMin', 'repsMax',
+  'setNo', 'reps', 'rir'];
 
 // Valores de Kcal/macros: por 100 g si Unidad = g, por unidad si Unidad = unidad.
 const DEFAULT_FOODS = [
@@ -62,6 +78,40 @@ const DEFAULT_FOODS = [
   ['verduras', 'Verduras variadas', 'g', 30, 2, 5, 0.3]
 ];
 
+// Rutina inicial (editable en la hoja Rutina). Aproximación: % del peso efectivo × reps.
+// [id, sesión, día, orden, ejercicio, músculo, series, reps mín, reps máx, RIR, aproximación, descanso/técnica]
+const DEFAULT_ROUTINE = [
+  ['push-press-plano', 'Push', 'Lunes', 1, 'Press de pecho plano (Máquina o Banca)', 'Pecho', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Pesado y controlado (2 seg al bajar).'],
+  ['push-press-inclinado', 'Push', 'Lunes', 2, 'Press inclinado en máquina', 'Pecho', 3, 6, 8, '1–2', '75%×4', '2–3 min | Enfoque en pecho superior.'],
+  ['push-peck-deck', 'Push', 'Lunes', 3, 'Peck deck (Aperturas en máquina)', 'Pecho', 2, 8, 10, '0–1', '', '90 seg | Pausa de 1 segundo atrás donde el pecho se estira al máximo.'],
+  ['push-laterales', 'Push', 'Lunes', 4, 'Elevaciones laterales con mancuernas', 'Hombro Lateral', 3, 10, 12, '1', '50%×10', '90 seg | Estricto sin columpiar el torso.'],
+  ['push-triceps-polea', 'Push', 'Lunes', 5, 'Extensión de tríceps en polea (barra o cuerda)', 'Tríceps', 4, 8, 10, '1', '60%×6-8', '90 seg | Codos fijos a las costillas.'],
+  ['pull-jalon-prono', 'Pull', 'Martes', 1, 'Jalón al pecho (Agarre prono medio)', 'Espalda', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Barra a la clavícula tirando desde los codos, sin columpiarte.'],
+  ['pull-remo-apoyado', 'Pull', 'Martes', 2, 'Remo con pecho apoyado (Máquina o Banco)', 'Espalda', 3, 6, 8, '1–2', '75%×4', '2–3 min | Cero estrés lumbar.'],
+  ['pull-remo-polea', 'Pull', 'Martes', 3, 'Remo sentado en polea (Agarre neutro)', 'Espalda', 2, 8, 10, '1–2', '', '2 min | Estira los hombros adelante y tracciona hacia la cadera.'],
+  ['pull-peck-inverso', 'Pull', 'Martes', 4, 'Peck deck inverso (o Pájaros)', 'Hombro Posterior', 3, 10, 12, '1', '', '90 seg | Brazos casi rectos, sin juntar escápulas.'],
+  ['pull-curl', 'Pull', 'Martes', 5, 'Curl de bíceps con mancuernas (o Barra Z)', 'Bíceps', 2, 8, 10, '1', '60%×6', '90 seg | Supina la muñeca al subir; codos pegados.'],
+  ['pull-martillo', 'Pull', 'Martes', 6, 'Curl martillo con mancuernas', 'Bíceps', 2, 8, 10, '1', '', '90 seg | Agarre neutro.'],
+  ['piernaa-abduccion', 'Pierna A', 'Miércoles', 1, 'Abducción de cadera en máquina', 'Glúteo / Cadera', 3, 10, 12, '1', '50%×10', '90 seg | Activa el glúteo medio para evitar valgo en prensa.'],
+  ['piernaa-femoral', 'Pierna A', 'Miércoles', 2, 'Curl femoral sentado', 'Isquiotibiales', 3, 8, 10, '1–2', '60%×8', '2 min | Lubrica la rodilla y activa isquios.'],
+  ['piernaa-prensa', 'Pierna A', 'Miércoles', 3, 'Prensa de piernas 45° (Bilateral)', 'Cuádriceps', 3, 6, 8, '1–2', '50%×8 · 80%×4', '3 min | [ANTI-HOFFITIS] Pies de la mitad hacia arriba. PROHIBIDO bloquear rodillas.'],
+  ['piernaa-prensa-1p', 'Pierna A', 'Miércoles', 4, 'Prensa a 1 pierna (Unilateral)', 'Cuádriceps', 2, 8, 10, '1–2', '', '2 min | Reps por pierna. Rodilla alineada con el 2do dedo del pie.'],
+  ['piernaa-extension', 'Pierna A', 'Miércoles', 5, 'Extensión de cuádriceps (Rango protegido)', 'Cuádriceps', 3, 8, 10, '1', '50%×6', '90 seg | [ANTI-HOFFITIS] Detente a 20° de estirar del todo. Pausa 2 s.'],
+  ['piernaa-pantorrilla', 'Pierna A', 'Miércoles', 6, 'Pantorrillas sentado (o con micro-flexión)', 'Pantorrillas', 2, 10, 12, '1', '', '90 seg | Pausa de 2 seg abajo. No trabes las rodillas.'],
+  ['torso-press', 'Torso', 'Jueves', 1, 'Press inclinado o plano en máquina', 'Pecho', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Máxima intención y carga pesada.'],
+  ['torso-jalon-neutro', 'Torso', 'Jueves', 2, 'Jalón al pecho (Agarre neutro o cerrado)', 'Espalda', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | 2 aproximaciones rápidas para activar dorsales.'],
+  ['torso-remo-abierto', 'Torso', 'Jueves', 3, 'Remo sentado en máquina (Agarre abierto)', 'Espalda', 3, 8, 10, '1–2', '', '2 min | Codos a ~45°–60° del torso.'],
+  ['torso-laterales', 'Torso', 'Jueves', 4, 'Elevaciones laterales (Mancuerna o Polea)', 'Hombro Lateral', 3, 10, 12, '1', '', '90 seg | Controla la bajada.'],
+  ['torso-curl', 'Torso', 'Jueves', 5, 'Curl de bíceps (Predicador o Polea baja)', 'Bíceps', 3, 8, 10, '1', '60%×6', '90 seg | Puedes hacerlo en superserie con el tríceps.'],
+  ['torso-triceps-nuca', 'Torso', 'Jueves', 6, 'Extensión de tríceps tras nuca (Polea o Manc.)', 'Tríceps', 3, 8, 10, '1', '60%×6', '90 seg | Estira al máximo la cabeza larga.'],
+  ['piernab-rdl', 'Pierna B', 'Viernes', 1, 'Peso muerto rumano (Barra o Mancuernas)', 'Isquiotibiales', 3, 6, 8, '2', '50%×8 · 80%×4', '3 min | [ANTI-HOFFITIS] Micro-flexión fija (15°-20°). No hiperextiendas la rodilla.'],
+  ['piernab-hip-thrust', 'Pierna B', 'Viernes', 2, 'Hip thrust en máquina o con barra', 'Glúteo / Cadera', 3, 6, 8, '1–2', '70%×5', '2–3 min | Minibanda sobre las rodillas empujando hacia afuera.'],
+  ['piernab-femoral', 'Pierna B', 'Viernes', 3, 'Curl femoral (Tumbado o Sentado)', 'Isquiotibiales', 3, 8, 10, '1', '', '2 min | Aislamiento de isquios.'],
+  ['piernab-spanish-squat', 'Pierna B', 'Viernes', 4, 'Spanish Squat (con banda) o Prensa 1 pierna', 'Cuádriceps', 2, 8, 10, '2', '50%×6', '2 min | [ANTI-HOFFITIS] Tibia 100% vertical.'],
+  ['piernab-pantorrilla', 'Pierna B', 'Viernes', 5, 'Pantorrillas (Rango sin bloqueo)', 'Pantorrillas', 3, 10, 12, '1', '', '90 seg | 2 seg de pausa abajo sin trabar rodilla.'],
+  ['piernab-crunch', 'Pierna B', 'Viernes', 6, 'Crunch abdominal en polea + Plancha', 'Core / Abdomen', 2, 8, 12, '1', '', '60 seg | Core con carga progresiva.']
+];
+
 const DEFAULT_CONFIG = [
   ['meta_kcal', 2200, 'Meta diaria de calorías (kcal)'],
   ['meta_proteina', 160, 'Meta diaria de proteína (g)'],
@@ -69,6 +119,7 @@ const DEFAULT_CONFIG = [
   ['meta_grasas', 73, 'Meta diaria de grasas (g)'],
   ['altura_m', 1.7, 'Altura en metros'],
   ['peso_inicial_kg', 87, 'Peso al iniciar el plan (kg)'],
+  ['meta_sesiones_semana', 4, 'Sesiones de entreno por semana para mantener la racha'],
   ['version_esquema', SCHEMA_VERSION, 'No editar: versión de la estructura de la hoja']
 ];
 
@@ -191,11 +242,27 @@ function ensureSchema(ss) {
     config.sh.getRange(config.values.length + 2, 1, newConfig.length, config.headers.length).setValues(newConfig);
     config.values = config.values.concat(newConfig);
   }
+  const versionRow = existingKeys.indexOf('version_esquema');
+  if (versionRow !== -1 && Number(config.values[versionRow][config.col.value]) !== SCHEMA_VERSION) {
+    config.sh.getRange(versionRow + 2, config.col.value + 1).setValue(SCHEMA_VERSION);
+  }
 
   const registros = openTable(ss, 'Registros');
   migrateLegacyEntries(registros, foods);
 
-  return { Alimentos: foods, Config: config, Registros: registros, Peso: openTable(ss, 'Peso') };
+  const rutina = openTable(ss, 'Rutina');
+  if (!rutina.values.length) {
+    const now = new Date().toISOString();
+    const rows = DEFAULT_ROUTINE.map(([id, session, day, order, name, muscle, sets, repsMin, repsMax, rirTarget, warmup, notes]) =>
+      fromObj(rutina, { id, session, day, order, name, muscle, sets, repsMin, repsMax, rirTarget, warmup, notes, active: true, updatedAt: now }));
+    rutina.sh.getRange(2, 1, rows.length, rutina.headers.length).setValues(rows);
+    rutina.values = rows;
+  }
+
+  return {
+    Alimentos: foods, Config: config, Registros: registros, Peso: openTable(ss, 'Peso'),
+    Rutina: rutina, Series: openTable(ss, 'Series')
+  };
 }
 
 // Filas creadas por la versión 1 (sin ID). Sus kcal/macros en gramos estaban
@@ -240,6 +307,8 @@ function load(ss) {
     foods: t.Alimentos.values.map(r => toObj(t.Alimentos, r)).filter(f => f.id && f.name),
     entries: t.Registros.values.map(r => toObj(t.Registros, r)).filter(e => e.id && e.date && !e.deleted),
     weights: t.Peso.values.map(r => toObj(t.Peso, r)).filter(w => w.date && w.weight && !w.deleted),
+    routine: t.Rutina.values.map(r => toObj(t.Rutina, r)).filter(x => x.id && x.name && x.session),
+    sets: t.Series.values.map(r => toObj(t.Series, r)).filter(x => x.id && x.date && x.exerciseId && !x.deleted),
     config
   };
 }
@@ -264,7 +333,7 @@ function upsert(ss, name, records) {
       t.values[i] = row;
       updated++;
     } else {
-      if (name === 'Registros') obj.createdAt = obj.updatedAt;
+      if (name === 'Registros' || name === 'Series') obj.createdAt = obj.updatedAt;
       appends[key] = fromObj(t, obj, appends[key]);
     }
   });
@@ -335,7 +404,26 @@ function sanitize(name, r) {
       bodyFat: num(r.bodyFat, 'Grasa corporal', 0, 80), note: text(r.note), updatedAt: now, deleted: r.deleted === true
     };
   }
-  // Config
+  if (name === 'Series') {
+    return {
+      id: id(r.id), date: isoDate(r.date), session: text(r.session, 50), exerciseId: id(r.exerciseId),
+      exercise: text(r.exercise, 100), setNo: num(r.setNo, 'Serie', 1, 50, true),
+      weight: num(r.weight, 'Peso', 0, 1000, true), reps: num(r.reps, 'Reps', 0, 1000, true),
+      rir: num(r.rir, 'RIR', 0, 10), notes: text(r.notes), updatedAt: now, deleted: r.deleted === true
+    };
+  }
+  if (name === 'Rutina') {
+    const nameText = text(r.name, 100);
+    if (!nameText) throw new Error('Ejercicio obligatorio');
+    return {
+      id: id(r.id), session: text(r.session, 50), day: text(r.day, 20), order: num(r.order, 'Orden', 0, 100),
+      name: nameText, muscle: text(r.muscle, 50), sets: num(r.sets, 'Series', 1, 20, true),
+      repsMin: num(r.repsMin, 'Reps mín', 0, 100, true), repsMax: num(r.repsMax, 'Reps máx', 0, 100, true),
+      rirTarget: text(r.rirTarget, 20), warmup: text(r.warmup, 100), notes: text(r.notes, 300),
+      active: r.active !== false, updatedAt: now
+    };
+  }
+  if (name !== 'Config') throw new Error('Tabla desconocida: ' + name);
   const key = String(r.key || '');
   if (!/^[a-z0-9_]{1,50}$/.test(key) || key === 'version_esquema') throw new Error('Clave de configuración inválida');
   const value = typeof r.value === 'number' ? num(r.value, key, -1e9, 1e9, true) : text(r.value);
