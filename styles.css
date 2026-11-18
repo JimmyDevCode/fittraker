@@ -105,6 +105,12 @@ label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px
 .entry:last-child { border: 0; }
 .entry small { color: var(--muted); }
 .actions { display: flex; gap: 6px; }
+.deleted-foods { margin-top: 10px; color: var(--muted); }
+.deleted-foods summary { cursor: pointer; font-size: .9rem; }
+.deleted-foods ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.deleted-foods li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.deleted-foods li button { padding: 4px 10px; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .actions button, td button { padding: 4px 9px; }
 
 table { width: 100%; border-collapse: collapse; }
@@ -186,6 +192,15 @@ th { color: var(--muted); font-size: 12px; }
 
 .banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 14px; padding: 10px 14px; margin-bottom: 18px; font-size: 14px; }
 .banner button { padding: 8px 14px; }
+
+.extras { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: var(--muted); padding: 0 4px; }
+.extras b { color: var(--text); }
+.catalog-link { padding: 8px 0 0; text-align: left; color: var(--accent); }
+.tpca-results { display: grid; gap: 8px; margin-top: 10px; max-height: 420px; overflow-y: auto; }
+.tpca-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.tpca-item small { display: block; color: var(--muted); margin-top: 3px; font-size: 12px; }
+.tpca-item button { padding: 8px 12px; white-space: nowrap; }
+.tpca-added { color: var(--accent); font-size: 13px; font-weight: 700; white-space: nowrap; }
 
 /* Instalación */
 .onb-footer .install-btn { padding: 12px; }

@@ -16,6 +16,11 @@ const MACROS = [
   { id: 'c', label: 'Carbohidratos', unit: 'g', goal: 'meta_carbohidratos' },
   { id: 'f', label: 'Grasas', unit: 'g', goal: 'meta_grasas' }
 ];
+// Opcionales y sin meta: solo se suman si el alimento tiene el dato.
+const EXTRAS = [
+  { id: 'fiber', label: 'Fibra', icon: '🌾' },
+  { id: 'sugar', label: 'Azúcares', icon: '🍬' }
+];
 const CONFIG_FIELDS = ['meta_kcal', 'meta_proteina', 'meta_carbohidratos', 'meta_grasas', 'altura_m', 'peso_inicial_kg', 'meta_sesiones_semana'];
 const DEFAULT_CONFIG = { meta_kcal: 2200, meta_proteina: 160, meta_carbohidratos: 220, meta_grasas: 73, altura_m: 1.7, peso_inicial_kg: 87, meta_sesiones_semana: 4 };
 const CONFIG_DESCRIPTIONS = {
@@ -37,8 +42,8 @@ const DEFAULT_FOODS = [
   ['avena-seca', 'Avena seca', 'g', 389, 16.9, 66.3, 6.9],
   ['huevo', 'Huevo entero', 'unidad', 72, 6.3, 0.4, 4.8],
   ['clara-huevo', 'Clara de huevo', 'unidad', 17, 3.6, 0.2, 0],
-  ['pan-frances', 'Pan francés', 'g', 275, 9, 57, 1.5],
-  ['platano-seda', 'Plátano de seda', 'g', 89, 1.1, 22.8, 0.3],
+  ['pan-frances', 'Pan francés', 'g', 277, 8.4, 62.9, 0.2],
+  ['platano-seda', 'Plátano de seda', 'g', 74, 1.5, 21, 0.3],
   ['atun-agua', 'Atún al agua escurrido', 'g', 116, 25.5, 0, 0.8],
   ['aceite-oliva', 'Aceite de oliva', 'g', 884, 0, 0, 100],
   ['verduras', 'Verduras variadas', 'g', 30, 2, 5, 0.3]
@@ -461,12 +466,18 @@ const entriesOn = key => db.entries.filter(e => e.date === key);
 
 function macrosFor(food, amount) {
   const factor = food.unit === 'unidad' ? amount : amount / 100;
-  return Object.fromEntries(MACROS.map(m => [m.id, round1(food[m.id] * factor)]));
+  const extras = EXTRAS.map(x => [x.id, food[x.id] == null || food[x.id] === '' ? null : round1(food[x.id] * factor)]);
+  return Object.fromEntries([...MACROS.map(m => [m.id, round1(food[m.id] * factor)]), ...extras]);
 }
 
+const hasValue = v => v !== null && v !== undefined && v !== '';
+
 function totals(list) {
-  const t = { k: 0, p: 0, c: 0, f: 0 };
-  list.forEach(e => MACROS.forEach(m => { t[m.id] += Number(e[m.id]) || 0; }));
+  const t = { k: 0, p: 0, c: 0, f: 0, fiber: 0, sugar: 0, missing: { fiber: 0, sugar: 0 } };
+  list.forEach(e => {
+    MACROS.forEach(m => { t[m.id] += Number(e[m.id]) || 0; });
+    EXTRAS.forEach(x => { if (hasValue(e[x.id])) t[x.id] += Number(e[x.id]); else t.missing[x.id]++; });
+  });
   return t;
 }
 
@@ -846,7 +857,17 @@ function renderMetrics() {
     return `<div class="metric m-${m.id}${over ? ' over' : ''}"><small>${m.label}</small><b>${round1(t[m.id])} <small>${m.unit}</small></b>` +
       `<small class="goal">${goalText}</small>` +
       `<div class="bar" role="progressbar" aria-label="${m.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(100, pct))}"><span style="width:${Math.min(100, pct)}%"></span></div></div>`;
-  }).join('');
+  }).join('') + extrasLine(t);
+}
+
+function extrasLine(t) {
+  const parts = EXTRAS.map(x => {
+    const missing = t.missing[x.id];
+    const value = t[x.id] > 0 || !missing ? `${round1(t[x.id])} g` : '—';
+    const note = missing ? ` <small class="muted">(${missing} sin dato)</small>` : '';
+    return `<span>${x.icon} ${x.label}: <b>${value}</b>${note}</span>`;
+  });
+  return `<div class="extras">${parts.join('')}</div>`;
 }
 
 function renderMeals() {
@@ -899,8 +920,16 @@ function renderFoodTable() {
   $('foodCount').textContent = `(${foods.length})`;
   $('foods').innerHTML = shown.length ? shown.map(f => `<tr><td>${esc(f.name)}</td><td>${f.unit === 'unidad' ? 'por unidad' : 'por 100 g'}</td>` +
     `<td>${round1(f.k)}</td><td>${round1(f.p)} g</td><td>${round1(f.c)} g</td><td>${round1(f.f)} g</td>` +
-    `<td><button class="danger" data-hide-food="${esc(f.id)}" aria-label="Ocultar ${esc(f.name)}">Ocultar</button></td></tr>`).join('')
-    : '<tr><td colspan="7" class="muted">Ningún alimento coincide con la búsqueda</td></tr>';
+    `<td>${hasValue(f.fiber) ? round1(f.fiber) + ' g' : '—'}</td><td>${hasValue(f.sugar) ? round1(f.sugar) + ' g' : '—'}</td>` +
+    `<td><div class="actions"><button class="secondary" data-edit-food="${esc(f.id)}" aria-label="Editar ${esc(f.name)}">✎</button>` +
+    `<button class="danger" data-hide-food="${esc(f.id)}" aria-label="Eliminar ${esc(f.name)}">🗑</button></div></td></tr>`).join('')
+    : '<tr><td colspan="9" class="muted">Ningún alimento coincide con la búsqueda</td></tr>';
+
+  const deleted = db.foods.filter(f => f.active === false).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  $('deletedFoodsBox').hidden = !deleted.length;
+  $('deletedCount').textContent = `(${deleted.length})`;
+  $('deletedFoods').innerHTML = deleted.map(f => `<li><span>${esc(f.name)}</span>` +
+    `<button class="secondary" data-restore-food="${esc(f.id)}" aria-label="Restaurar ${esc(f.name)}">Restaurar</button></li>`).join('');
 }
 
 function renderFoods() {
@@ -943,7 +972,119 @@ function selectDate(d) {
   render();
 }
 
+// ---------- Tabla Peruana de Composición de Alimentos ----------
+
+let catalog = null;
+let catalogLoading = null;
+
+function loadCatalog() {
+  catalogLoading ||= fetch('data/tabla-peruana.json')
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => {
+      catalog = data.foods.map(([code, name, group, k, p, c, f, fiber]) => ({
+        code, name, group: data.groups[group], k, p, c, f, fiber, search: normalizeText(name)
+      }));
+      renderCatalog();
+    })
+    .catch(() => {
+      catalogLoading = null;
+      $('tpcaResults').innerHTML = '<p class="muted">No se pudo cargar la tabla. Revisa tu conexión.</p>';
+    });
+  return catalogLoading;
+}
+
+const catalogId = code => `tpca-${code.toLowerCase()}`;
+
+function renderCatalog() {
+  const query = normalizeText($('tpcaSearch').value.trim());
+  if (!query) { $('tpcaResults').innerHTML = ''; return; }
+  if (!catalog) { $('tpcaResults').innerHTML = '<p class="muted">Cargando tabla…</p>'; loadCatalog(); return; }
+  const words = query.split(/\s+/);
+  const matches = catalog.filter(x => words.every(w => x.search.includes(w)))
+    .sort((a, b) => (b.search.startsWith(words[0]) - a.search.startsWith(words[0])) || a.name.length - b.name.length)
+    .slice(0, 30);
+  const mine = new Set(activeFoods().map(f => f.id));
+  const val = (v, unit = ' g') => (hasValue(v) ? round1(v) + unit : '—');
+  $('tpcaResults').innerHTML = matches.length ? matches.map(x => `<div class="tpca-item"><div><b>${esc(x.name)}</b>` +
+    `<small>${esc(x.group)} · ${val(x.k, ' kcal')} · P ${val(x.p)} · C ${val(x.c)} · G ${val(x.f)} · Fibra ${val(x.fiber)}</small></div>` +
+    (mine.has(catalogId(x.code))
+      ? '<span class="tpca-added">✓ En tu lista</span>'
+      : `<button class="secondary" data-tpca="${esc(x.code)}" aria-label="Agregar ${esc(x.name)}">+ Agregar</button>`) +
+    '</div>').join('') + (matches.length === 30 ? '<p class="hint">Mostrando 30 resultados. Escribe más para afinar.</p>' : '')
+    : '<p class="muted">Sin resultados. Prueba con otra palabra (ej. "pechuga" en vez de "pechuga de pollo").</p>';
+}
+
+function addFromCatalog(code) {
+  const x = catalog?.find(item => item.code === code);
+  if (!x) return;
+  const id = catalogId(code);
+  const existing = db.foods.find(f => f.id === id);
+  change('Alimentos', {
+    ...(existing || {}), id, name: x.name, unit: 'g', k: x.k ?? 0, p: x.p ?? 0, c: x.c ?? 0, f: x.f ?? 0,
+    fiber: x.fiber, sugar: existing?.sugar ?? null, source: `Tabla Peruana INS · ${code}`, active: true
+  });
+  $('food').value = id;
+  updateUnit(true);
+  renderCatalog();
+  $('tpcaStatus').textContent = `Agregado: ${x.name}. Ya está elegido en "Registrar alimento".`;
+}
+
 // ---------- Acciones ----------
+
+let editingFoodId = null;
+const FOOD_INPUTS = { k: 'foodK', p: 'foodP', c: 'foodC', f: 'foodF', fiber: 'foodFiber', sugar: 'foodSugar' };
+
+function startFoodEdit(id) {
+  const food = db.foods.find(f => f.id === id);
+  if (!food) return;
+  editingFoodId = id;
+  $('foodName').value = food.name;
+  $('foodUnit').value = food.unit;
+  Object.entries(FOOD_INPUTS).forEach(([k, input]) => { $(input).value = hasValue(food[k]) ? food[k] : ''; });
+  $('foodFormTitle').textContent = `Editar: ${food.name}`;
+  $('foodSubmit').textContent = 'Guardar cambios';
+  $('foodCancel').hidden = false;
+  $('foodForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('foodK').focus({ preventScroll: true });
+}
+
+function resetFoodForm() {
+  editingFoodId = null;
+  $('foodForm').reset();
+  $('foodFormTitle').textContent = 'Añadir alimento a mano';
+  $('foodSubmit').textContent = 'Añadir alimento';
+  $('foodCancel').hidden = true;
+}
+
+function saveFood() {
+  const name = $('foodName').value.trim();
+  if (!name) return;
+  const values = {
+    name, unit: $('foodUnit').value,
+    k: numOrNull($('foodK').value) || 0, p: numOrNull($('foodP').value) || 0,
+    c: numOrNull($('foodC').value) || 0, f: numOrNull($('foodF').value) || 0,
+    fiber: numOrNull($('foodFiber').value), sugar: numOrNull($('foodSugar').value)
+  };
+  const old = editingFoodId && db.foods.find(f => f.id === editingFoodId);
+  if (!old) {
+    change('Alimentos', { id: `${slug(name) || 'alimento'}-${Math.random().toString(36).slice(2, 6)}`, ...values, source: 'Manual', active: true });
+    resetFoodForm();
+    return;
+  }
+  const same = (a, b) => (hasValue(a) ? Number(a) : null) === (hasValue(b) ? Number(b) : null);
+  const valuesChanged = [...MACROS, ...EXTRAS].some(m => !same(old[m.id], values[m.id]));
+  const source = valuesChanged && old.source && !/editado/.test(old.source) ? `${old.source} (editado)` : old.source;
+  const food = { ...old, ...values, source };
+  change('Alimentos', food);
+
+  // Los registros guardan los macros calculados al registrar; se recalculan solo si el usuario lo pide.
+  const past = db.entries.filter(e => e.foodId === food.id && e.unit === food.unit);
+  if (past.length && (valuesChanged || old.name !== name) &&
+      confirm(`¿Actualizar también ${past.length} registro${past.length > 1 ? 's' : ''} anterior${past.length > 1 ? 'es' : ''} de ${name} con los nuevos valores?`)) {
+    change('Registros', past.map(e => ({ ...e, food: name, ...macrosFor(food, e.amount) })));
+  }
+  resetFoodForm();
+}
 
 function editEntry(id) {
   const e = db.entries.find(x => x.id === id);
@@ -953,7 +1094,8 @@ function editEntry(id) {
   const amount = numOrNull(input);
   if (!(amount > 0)) { alert('Cantidad inválida'); return; }
   const food = db.foods.find(f => f.id === e.foodId);
-  const macros = food ? macrosFor(food, amount) : Object.fromEntries(MACROS.map(m => [m.id, round1(e[m.id] * amount / e.amount)]));
+  const scale = v => (hasValue(v) ? round1(v * amount / e.amount) : null);
+  const macros = food ? macrosFor(food, amount) : Object.fromEntries([...MACROS, ...EXTRAS].map(m => [m.id, scale(e[m.id])]));
   change('Registros', { ...e, amount, ...macros });
 }
 
@@ -972,9 +1114,9 @@ function copyPreviousDay() {
 }
 
 function exportCsv() {
-  const header = ['fecha', 'comida', 'alimento', 'cantidad', 'unidad', 'kcal', 'proteina_g', 'carbohidratos_g', 'grasas_g', 'notas'];
+  const header = ['fecha', 'comida', 'alimento', 'cantidad', 'unidad', 'kcal', 'proteina_g', 'carbohidratos_g', 'grasas_g', 'fibra_g', 'azucares_g', 'notas'];
   const rows = [...db.entries].sort((a, b) => a.date.localeCompare(b.date) || MEALS.indexOf(a.meal) - MEALS.indexOf(b.meal))
-    .map(e => [e.date, e.meal, e.food, e.amount, e.unit, e.k, e.p, e.c, e.f, e.notes || '']);
+    .map(e => [e.date, e.meal, e.food, e.amount, e.unit, e.k, e.p, e.c, e.f, e.fiber, e.sugar, e.notes || '']);
   const csv = '\ufeff' + [header, ...rows].map(r => r.map(x => '"' + String(x ?? '').replaceAll('"', '""') + '"').join(',')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -1004,6 +1146,17 @@ function bindEvents() {
   $('days').onclick = e => { const b = e.target.closest('[data-date]'); if (b) selectDate(parseKey(b.dataset.date)); };
   $('food').onchange = () => updateUnit(true);
   $('foodSearch').oninput = renderFoodTable;
+  $('tpcaSearch').oninput = renderCatalog;
+  $('tpcaSearch').onfocus = loadCatalog;
+  $('openCatalog').onclick = () => {
+    $('foodsPanel').open = true;
+    $('tpcaSearch').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('tpcaSearch').focus({ preventScroll: true });
+  };
+  $('tpcaResults').onclick = e => {
+    const b = e.target.closest('[data-tpca]');
+    if (b) addFromCatalog(b.dataset.tpca);
+  };
   $('copyPrev').onclick = copyPreviousDay;
   $('export').onclick = exportCsv;
   $('sync').onclick = () => (account && !GSheets.hasToken() ? connectGoogle() : sync());
@@ -1026,9 +1179,19 @@ function bindEvents() {
   };
 
   $('foods').onclick = e => {
+    const edit = e.target.closest('[data-edit-food]');
+    if (edit) { startFoodEdit(edit.dataset.editFood); return; }
     const b = e.target.closest('[data-hide-food]');
     const f = b && db.foods.find(x => x.id === b.dataset.hideFood);
-    if (f && confirm(`¿Ocultar ${f.name}? Los registros anteriores se conservan.`)) change('Alimentos', { ...f, active: false });
+    if (f && confirm(`¿Eliminar ${f.name}? Tus registros anteriores se conservan y puedes restaurarlo desde "Eliminados".`)) {
+      if (editingFoodId === f.id) resetFoodForm();
+      change('Alimentos', { ...f, active: false });
+    }
+  };
+  $('deletedFoods').onclick = e => {
+    const b = e.target.closest('[data-restore-food]');
+    const f = b && db.foods.find(x => x.id === b.dataset.restoreFood);
+    if (f) change('Alimentos', { ...f, active: true });
   };
 
   $('add').onsubmit = e => {
@@ -1055,16 +1218,9 @@ function bindEvents() {
 
   $('foodForm').onsubmit = e => {
     e.preventDefault();
-    const name = $('foodName').value.trim();
-    if (!name) return;
-    const food = {
-      id: `${slug(name) || 'alimento'}-${Math.random().toString(36).slice(2, 6)}`, name, unit: $('foodUnit').value,
-      k: numOrNull($('foodK').value) || 0, p: numOrNull($('foodP').value) || 0,
-      c: numOrNull($('foodC').value) || 0, f: numOrNull($('foodF').value) || 0, active: true
-    };
-    change('Alimentos', food);
-    e.target.reset();
+    saveFood();
   };
+  $('foodCancel').onclick = resetFoodForm;
 
   $('goalsForm').onsubmit = e => {
     e.preventDefault();

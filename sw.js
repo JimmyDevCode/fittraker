@@ -1,7 +1,7 @@
 // Primero la red (siempre la última versión tras un deploy) y, sin conexión, la copia guardada.
 // Las llamadas a Google no pasan por aquí: los datos pendientes ya se guardan en localStorage.
-const CACHE = 'fittracker-shell-v1';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'sheets.js', 'config.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
+const CACHE = 'fittracker-shell-v2';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'sheets.js', 'config.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'data/tabla-peruana.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

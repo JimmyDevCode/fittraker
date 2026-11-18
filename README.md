@@ -58,14 +58,17 @@ Cada hoja es una tabla: la fila 1 tiene los encabezados y cada fila siguiente es
 
 | Hoja | Clave | Columnas |
 |------|-------|----------|
-| `Registros` | `ID` | ID, Fecha (AAAA-MM-DD), Comida, AlimentoID, Alimento, Cantidad, Unidad, Kcal, Proteína (g), Carbohidratos (g), Grasas (g), Notas, CreadoEn, ActualizadoEn, Eliminado |
-| `Alimentos` | `ID` | ID, Nombre, Unidad (`g` o `unidad`), Kcal, Proteína (g), Carbohidratos (g), Grasas (g), Activo, ActualizadoEn |
+| `Registros` | `ID` | ID, Fecha (AAAA-MM-DD), Comida, AlimentoID, Alimento, Cantidad, Unidad, Kcal, Proteína (g), Carbohidratos (g), Grasas (g), Notas, CreadoEn, ActualizadoEn, Eliminado, Fibra (g), Azúcares (g) |
+| `Alimentos` | `ID` | ID, Nombre, Unidad (`g` o `unidad`), Kcal, Proteína (g), Carbohidratos (g), Grasas (g), Activo, ActualizadoEn, Fibra (g), Azúcares (g), Fuente |
 | `Peso` | `Fecha` | Fecha, Peso (kg), Cintura (cm), Grasa (%), Nota, ActualizadoEn, Eliminado |
 | `Rutina` | `ID` | ID, Sesión, Día, Orden, Ejercicio, Músculo, Series, Reps mín, Reps máx, RIR objetivo, Aproximación, Descanso / Técnica, Activo, ActualizadoEn |
 | `Series` | `ID` | ID, Fecha, Sesión, EjercicioID, Ejercicio, Serie, Peso (kg), Reps, RIR, Notas, CreadoEn, ActualizadoEn, Eliminado |
 | `Config` | `Clave` | Clave, Valor, Descripción |
 
-- **Alimentos:** los valores son por 100 g si la unidad es `g`, o por unidad si es `unidad`. Puedes añadir alimentos desde la web o directamente en la hoja. `Activo = FALSE` oculta un alimento sin afectar los registros anteriores.
+- **Alimentos:** los valores son por 100 g si la unidad es `g`, o por unidad si es `unidad`. Puedes añadir alimentos desde la web o directamente en la hoja. El botón 🗑 elimina un alimento marcando `Activo = FALSE` (la fila no se borra para no romper la sincronización entre dispositivos); los registros anteriores se conservan y puedes recuperarlo desde **🗑 Eliminados**.
+- **Fibra y azúcares:** opcionales y sin meta. Se suman en el día solo para los alimentos que tienen el dato; el resto cuenta como "sin dato". El azúcar es parte de los carbohidratos, no se suma aparte.
+- **Tabla Peruana:** en **🥗 Alimentos** puedes buscar entre los 1 125 alimentos de las *Tablas Peruanas de Composición de Alimentos* (INS/CENAN, `data/tabla-peruana.json`) y agregarlos con un toque (`Fuente = Tabla Peruana INS · <código>`). La tabla trae fibra pero no azúcares; complétalos desde la etiqueta si te interesan.
+- **Editar alimentos:** con ✎ en la lista cambias nombre o valores. Al guardar te pregunta si quieres recalcular también los registros anteriores de ese alimento (si no, conservan los valores con que se registraron).
 - **Registros:** guardan una copia de las kcal y macros del momento, así que editar un alimento no altera el historial.
 - **Rutina:** se crea con la rutina PPL + Torso/Pierna. Edítala en la hoja (ejercicios, series, rango de reps) y pulsa **Sincronizar**. `Activo = FALSE` quita un ejercicio. `Aproximación` usa el formato `50%×8 · 80%×3-4` (% del peso efectivo × reps) y la web calcula los kilos redondeando a 2.5 kg. Para añadir una sesión nueva, usa un nombre nuevo en `Sesión`.
 - **Series:** una fila por serie efectiva. La web sugiere la sesión según la semana (la primera que aún no hiciste), muestra lo que hiciste la última vez y aplica doble progresión: si todas las series llegaron al tope del rango de reps, sugiere subir 2.5 kg; si no, mantener el peso y sumar reps.

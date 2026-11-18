@@ -164,6 +164,7 @@
       <button type="submit">Agregar</button>
     </form>
     <p class="hint">Pollo en crudo · arroz y lentejas cocidos · avena seca · huevos por unidad. Los valores nutricionales son aproximados.</p>
+    <button class="link-btn catalog-link" id="openCatalog">🇵🇪 ¿No está en la lista? Búscalo en la Tabla Peruana de Alimentos</button>
   </section>
 
   <section class="panel">
@@ -187,16 +188,26 @@
     </div>
   </section>
 
-  <details class="panel collapsible">
+  <details class="panel collapsible" id="foodsPanel">
     <summary><h2>🥗 Alimentos <small class="muted" id="foodCount"></small></h2></summary>
     <div><label for="foodSearch">Buscar alimento</label><input id="foodSearch" type="search" placeholder="Ej. pollo, avena…" autocomplete="off"></div>
     <div class="scroll">
       <table>
-        <thead><tr><th>Alimento</th><th>Base</th><th>Kcal</th><th>Proteína</th><th>Carbohidratos</th><th>Grasas</th><th></th></tr></thead>
+        <thead><tr><th>Alimento</th><th>Base</th><th>Kcal</th><th>Proteína</th><th>Carbohidratos</th><th>Grasas</th><th>Fibra</th><th>Azúcares</th><th></th></tr></thead>
         <tbody id="foods"></tbody>
       </table>
     </div>
-    <h3>Añadir alimento</h3>
+    <details class="deleted-foods" id="deletedFoodsBox" hidden>
+      <summary>🗑 Eliminados <span id="deletedCount"></span></summary>
+      <ul id="deletedFoods"></ul>
+    </details>
+    <h3>🇵🇪 Tabla Peruana de Alimentos</h3>
+    <p class="hint">1 125 alimentos del INS/CENAN con valores por 100 g. Búscalo y agrégalo a tu lista con un toque. La tabla no incluye azúcares: si quieres, agrégalos con ✎ desde la etiqueta.</p>
+    <div><label for="tpcaSearch">Buscar en la tabla</label><input id="tpcaSearch" type="search" placeholder="Ej. melón, quinua, bonito…" autocomplete="off"></div>
+    <p class="status" id="tpcaStatus" role="status"></p>
+    <div class="tpca-results" id="tpcaResults"></div>
+
+    <h3 id="foodFormTitle">Añadir alimento a mano</h3>
     <form class="form auto" id="foodForm">
       <div class="wide"><label for="foodName">Nombre</label><input id="foodName" maxlength="100" required></div>
       <div><label for="foodUnit">Base</label><select id="foodUnit"><option value="g">por 100 g</option><option value="unidad">por unidad</option></select></div>
@@ -204,7 +215,12 @@
       <div><label for="foodP">Proteína (g)</label><input id="foodP" type="number" step="0.1" min="0" required></div>
       <div><label for="foodC">Carbohidratos (g)</label><input id="foodC" type="number" step="0.1" min="0" required></div>
       <div><label for="foodF">Grasas (g)</label><input id="foodF" type="number" step="0.1" min="0" required></div>
-      <button type="submit">Añadir alimento</button>
+      <div><label for="foodFiber">Fibra (g)</label><input id="foodFiber" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+      <div><label for="foodSugar">Azúcares (g)</label><input id="foodSugar" type="number" step="0.1" min="0" placeholder="Opcional"></div>
+      <div class="form-actions wide">
+        <button type="submit" id="foodSubmit">Añadir alimento</button>
+        <button type="button" class="secondary" id="foodCancel" hidden>Cancelar</button>
+      </div>
     </form>
   </details>
 

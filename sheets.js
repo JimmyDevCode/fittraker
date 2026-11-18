@@ -15,14 +15,15 @@ const GSheets = (() => {
     Alimentos: {
       key: 'id',
       fields: [['id', 'ID'], ['name', 'Nombre'], ['unit', 'Unidad'], ['k', 'Kcal'], ['p', 'Proteína (g)'],
-        ['c', 'Carbohidratos (g)'], ['f', 'Grasas (g)'], ['active', 'Activo'], ['updatedAt', 'ActualizadoEn']]
+        ['c', 'Carbohidratos (g)'], ['f', 'Grasas (g)'], ['active', 'Activo'], ['updatedAt', 'ActualizadoEn'],
+        ['fiber', 'Fibra (g)'], ['sugar', 'Azúcares (g)'], ['source', 'Fuente']]
     },
     Registros: {
       key: 'id',
       fields: [['id', 'ID'], ['date', 'Fecha'], ['meal', 'Comida'], ['foodId', 'AlimentoID'], ['food', 'Alimento'],
         ['amount', 'Cantidad'], ['unit', 'Unidad'], ['k', 'Kcal'], ['p', 'Proteína (g)'], ['c', 'Carbohidratos (g)'],
         ['f', 'Grasas (g)'], ['notes', 'Notas'], ['createdAt', 'CreadoEn'], ['updatedAt', 'ActualizadoEn'],
-        ['deleted', 'Eliminado']]
+        ['deleted', 'Eliminado'], ['fiber', 'Fibra (g)'], ['sugar', 'Azúcares (g)']]
     },
     Peso: {
       key: 'date',
@@ -47,7 +48,7 @@ const GSheets = (() => {
       fields: [['key', 'Clave'], ['value', 'Valor'], ['description', 'Descripción']]
     }
   };
-  const NUMERIC = new Set(['amount', 'k', 'p', 'c', 'f', 'weight', 'waist', 'bodyFat', 'order', 'sets', 'repsMin',
+  const NUMERIC = new Set(['amount', 'k', 'p', 'c', 'f', 'fiber', 'sugar', 'weight', 'waist', 'bodyFat', 'order', 'sets', 'repsMin',
     'repsMax', 'setNo', 'reps', 'rir']);
   const DATE_FIELDS = new Set(['date']);
 
