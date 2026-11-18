@@ -1,8 +1,139 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FitTracker · Recomposición</title><style>
-:root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#eaf2ed;background:#0c1411}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:28px 18px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{font-size:30px;margin:0}h2{font-size:19px;margin:0 0 14px}.muted{color:#a6b9ae}.panel{background:#15221b;border:1px solid #2b4335;border-radius:18px;padding:20px;margin-top:18px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.metric{background:#1b3023;border-radius:14px;padding:16px}.metric b{display:block;font-size:26px;margin:5px 0}.metric small{color:#b5cbbd}button,input,select{font:inherit}button{background:#a6f4b8;border:0;color:#10321b;padding:11px 16px;border-radius:10px;font-weight:700;cursor:pointer}button.secondary{background:#2a4233;color:#e6f3e9}button.danger{background:#54332e;color:#ffd6cf}input,select{width:100%;background:#0f1c15;border:1px solid #42604c;color:#f0fff2;border-radius:10px;padding:11px}label{display:block;font-size:13px;color:#b9cbbd;margin-bottom:6px}.form{display:grid;grid-template-columns:1.2fr 1.4fr 1fr 1fr auto;gap:12px;align-items:end}.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px}.calendar-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.calendar-head h2{margin:0;text-transform:capitalize}.weekhead{text-align:center;color:#9eb8a5;font-size:12px;padding:8px 0}.day.blank{background:transparent;pointer-events:none}.day{min-height:64px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left}.day small{font-size:10px;opacity:.8}.day.today{outline:2px solid #74bd88}.day.has-data:not(.active){border:1px solid #79b88a}.day{background:#203628;color:#d4e5d8;padding:13px 5px}.day.active{background:#a6f4b8;color:#12331d}.bar{height:9px;background:#2c4234;border-radius:9px;overflow:hidden;margin-top:10px}.bar span{display:block;background:#a6f4b8;height:100%}.meals{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.meal{background:#1b2d22;padding:15px;border-radius:12px}.entry{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #304538}.entry:last-child{border:0}.entry small{color:#abc2b2}.entry button{padding:4px 9px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #304538}th{color:#a9c0ae;font-size:12px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.status{font-size:13px;color:#b2c9b7}.hint{font-size:12px;color:#9eb8a5;margin-top:10px}.settings{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.scroll{overflow:auto}@media(max-width:750px){.metrics{grid-template-columns:repeat(2,1fr)}.form{grid-template-columns:1fr 1fr}.form>div:first-child,.form>div:nth-child(2){grid-column:span 2}.form button{grid-column:span 2}.meals{grid-template-columns:1fr}.days{gap:4px}.day{font-size:12px;padding:12px 2px}.settings{grid-template-columns:1fr}}
-</style></head><body><div class="wrap"><header><div><h1>💪 FitTracker</h1><div class="muted">Recomposición corporal · 87 kg · 1.70 m</div></div><div class="row"><button class="secondary" id="export">Exportar CSV</button><button class="secondary" id="sync">Sincronizar Sheets</button></div></header><section class="panel"><div class="calendar-head"><button class="secondary" id="prevMonth" aria-label="Mes anterior">‹</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth" aria-label="Mes siguiente">›</button></div><div class="row" style="margin-top:12px"><span class="muted">Selecciona una fecha para registrar tus comidas</span><button class="secondary" id="today">Hoy</button></div><div class="days" id="days"></div></section><div class="metrics" id="metrics"></div><section class="panel"><h2>➕ Registrar alimento</h2><form class="form" id="add"><div><label>Comida</label><select id="meal"><option>Desayuno</option><option>Almuerzo</option><option>Merienda</option><option>Cena</option></select></div><div><label>Alimento</label><select id="food"></select></div><div><label>Cantidad</label><input id="amount" type="number" min="0.1" step="0.1" value="100" required></div><div><label>Unidad</label><input id="unit" disabled></div><button type="submit">Agregar</button></form><p class="hint">Pollo en crudo · arroz y lentejas cocidos · avena seca · huevos por unidad. Los valores nutricionales son aproximados.</p></section><section class="panel"><div class="row"><h2>🍽️ Comidas del día</h2><span class="status" id="dayLabel"></span></div><div class="meals" id="meals"></div></section><section class="panel"><h2>📅 Resumen de la semana seleccionada</h2><div class="scroll"><table><thead><tr><th>Día</th><th>Calorías</th><th>Proteína</th><th>Carbohidratos</th><th>Grasas</th></tr></thead><tbody id="weekly"></tbody></table></div></section><section class="panel"><h2>☁️ Conexión a Google Sheets</h2><p class="muted">La web funciona sin conexión usando el almacenamiento de este navegador. Para sincronizar con tu hoja privada, despliega el Apps Script incluido y pega aquí la URL de su aplicación web.</p><div class="settings"><div><label>URL del Apps Script desplegado</label><input id="endpoint" placeholder="https://script.google.com/macros/s/.../exec"></div><button id="saveEndpoint">Guardar conexión</button></div><p class="status" id="status">Modo local · tus datos quedan en este navegador.</p><p class="hint">No publiques esta web con una URL de escritura sin protección. El backend incluido usa una clave privada compartida; para uso público implementa autenticación OAuth.</p><div class="settings"><div><label>Clave de sincronización (la misma de Apps Script)</label><input id="secret" type="password" placeholder="Clave privada"></div><button id="saveSecret">Guardar clave</button></div></section></div><script>
-const foods=[['Pechuga de pollo cruda','g',1.20,.23,0,.026],['Arroz blanco cocido','g',1.30,.027,.282,.003],['Lentejas sancochadas','g',1.16,.09,.201,.004],['Avena seca','g',3.89,.169,.663,.069],['Huevo entero','unidad',72,6.3,.4,4.8],['Clara de huevo','unidad',17,3.6,.2,0],['Pan francés','g',2.75,.09,.57,.015],['Plátano de seda','g',.89,.011,.228,.003],['Atún al agua escurrido','g',1.16,.255,0,.008],['Aceite de oliva','g',8.84,0,0,1],['Verduras variadas','g',.3,.02,.05,.003]];
-const names=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'], goals={k:2200,p:160,c:220,f:73};let state=JSON.parse(localStorage.getItem('fittracker-v1')||'{}');let selectedDate=new Date();selectedDate.setHours(12,0,0,0);let viewMonth=new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1,12);const $=id=>document.getElementById(id),save=()=>localStorage.setItem('fittracker-v1',JSON.stringify(state)),fmt=n=>Math.round(n*10)/10;function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}function key(i){const d=new Date(selectedDate);const dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow+i);return dateKey(d)}function entries(i){return state[key(i)]||[]}function selectedEntries(){return state[dateKey(selectedDate)]||[]}function selectDate(d){selectedDate=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);viewMonth=new Date(d.getFullYear(),d.getMonth(),1,12);render()}function calc(a){return a.reduce((t,e)=>{let f=foods[e.food],n=e.amount/(f[1]==='unidad'?1:100);['k','p','c','f'].forEach((k,j)=>t[k]+=f[j+2]*n);return t},{k:0,p:0,c:0,f:0})}function render(){const first=new Date(viewMonth.getFullYear(),viewMonth.getMonth(),1,12),offset=(first.getDay()+6)%7,last=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,0,12).getDate(),today=dateKey(new Date());$('monthTitle').textContent=first.toLocaleDateString('es-PE',{month:'long',year:'numeric'});let cells=names.map(n=>`<div class="weekhead">${n.slice(0,3)}</div>`);for(let i=0;i<offset;i++)cells.push('<div class="day blank"></div>');for(let n=1;n<=last;n++){let d=new Date(first.getFullYear(),first.getMonth(),n,12),k=dateKey(d),t=calc(state[k]||[]);cells.push(`<button class="day ${k===dateKey(selectedDate)?'active':''} ${k===today?'today':''} ${state[k]?.length?'has-data':''}" data-date="${k}"><span>${n}</span><small>${state[k]?.length?Math.round(t.k)+' kcal':'—'}</small></button>`)}$('days').innerHTML=cells.join('');document.querySelectorAll('[data-date]').forEach(b=>b.onclick=()=>{const [y,m,d]=b.dataset.date.split('-').map(Number);selectDate(new Date(y,m-1,d,12))});const t=calc(selectedEntries());$('metrics').innerHTML=[['Calorías','k','kcal'],['Proteína','p','g'],['Carbohidratos','c','g'],['Grasas','f','g']].map(([n,k,u])=>`<div class="metric"><small>${n}</small><b>${fmt(t[k])} <small>${u}</small></b><small>Meta: ${goals[k]} ${u}</small><div class="bar"><span style="width:${Math.min(100,t[k]/goals[k]*100)}%"></span></div></div>`).join('');$('dayLabel').textContent=selectedDate.toLocaleDateString('es-PE',{weekday:'long',day:'numeric',month:'long',year:'numeric'});$('meals').innerHTML=['Desayuno','Almuerzo','Merienda','Cena'].map(m=>{let a=selectedEntries().map((e,i)=>({...e,i})).filter(e=>e.meal===m);return `<div class="meal"><div class="row"><b>${m}</b><small>${Math.round(calc(a).k)} kcal</small></div>${a.length?a.map(e=>`<div class="entry"><div>${foods[e.food][0]}<br><small>${e.amount} ${foods[e.food][1]} · ${Math.round(calc([e]).p)} g proteína</small></div><button class="danger" data-del="${e.i}">×</button></div>`).join(''):'<p class="muted">Sin registros</p>'}</div>`}).join('');document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{state[dateKey(selectedDate)].splice(+b.dataset.del,1);save();render()});$('weekly').innerHTML=names.map((n,i)=>{let t=calc(entries(i));return `<tr><td>${n} <small class="muted">${key(i)}</small></td><td>${Math.round(t.k)}</td><td>${fmt(t.p)} g</td><td>${fmt(t.c)} g</td><td>${fmt(t.f)} g</td></tr>`}).join('')}
-$('prevMonth').onclick=()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-1,1,12);render()};$('nextMonth').onclick=()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,1,12);render()};$('today').onclick=()=>selectDate(new Date());
-$('food').innerHTML=foods.map((f,i)=>`<option value="${i}">${f[0]}</option>`).join('');$('food').onchange=()=>{$('unit').value=foods[+$('food').value][1];$('amount').value=$('unit').value==='unidad'?3:100};$('food').onchange();$('add').onsubmit=e=>{e.preventDefault();let amount=Number($('amount').value);if(!Number.isFinite(amount)||amount<=0)return;let k=dateKey(selectedDate);(state[k]??=[]).push({meal:$('meal').value,food:+$('food').value,amount});save();render()};$('export').onclick=()=>{let rows=[['fecha','comida','alimento','cantidad','unidad','kcal','proteina_g','carbohidratos_g','grasas_g']];Object.entries(state).sort().forEach(([date,arr])=>arr.forEach(e=>{let t=calc([e]);rows.push([date,e.meal,foods[e.food][0],e.amount,foods[e.food][1],...['k','p','c','f'].map(k=>fmt(t[k]))])}));let csv='\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='fittracker-registros.csv';a.click();URL.revokeObjectURL(a.href)};$('endpoint').value=localStorage.getItem('fittracker-endpoint')||'';$('secret').value=localStorage.getItem('fittracker-secret')||'';$('saveEndpoint').onclick=()=>{localStorage.setItem('fittracker-endpoint',$('endpoint').value.trim());$('status').textContent='URL guardada'};$('saveSecret').onclick=()=>{localStorage.setItem('fittracker-secret',$('secret').value);$('status').textContent='Clave guardada en este navegador'};$('sync').onclick=async()=>{let url=$('endpoint').value.trim(),secret=$('secret').value;if(!url||!secret){$('status').textContent='Configura URL y clave primero';return}try{$('status').textContent='Sincronizando...';let payload={secret,records:Object.entries(state).flatMap(([date,arr])=>arr.map(e=>{let t=calc([e]);return {date,meal:e.meal,food:foods[e.food][0],amount:e.amount,unit:foods[e.food][1],...Object.fromEntries(['k','p','c','f'].map(k=>[k,fmt(t[k])]))}}))};await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});$('status').textContent='Solicitud enviada. Comprueba la hoja: el navegador no puede confirmar la respuesta en modo no-cors.'}catch(e){$('status').textContent='Error: '+e.message}};render();
-</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FitTracker · Recomposición</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>💪 FitTracker</h1>
+      <div class="muted" id="subtitle"></div>
+    </div>
+    <div class="row">
+      <button class="secondary" id="export">Exportar CSV</button>
+      <button class="secondary" id="sync">Sincronizar</button>
+    </div>
+  </header>
+  <p class="status" id="status" role="status"></p>
+
+  <section class="panel">
+    <div class="calendar-head">
+      <button class="secondary" id="prevMonth" aria-label="Mes anterior">‹</button>
+      <h2 id="monthTitle"></h2>
+      <button class="secondary" id="nextMonth" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span class="muted desktop-only">Selecciona una fecha para registrar tus comidas</span>
+      <div class="row">
+        <button class="secondary" id="today">Hoy</button>
+        <button class="secondary" id="toggleCalendar" aria-controls="days"></button>
+      </div>
+    </div>
+    <div class="days" id="days"></div>
+  </section>
+
+  <div class="metrics" id="metrics"></div>
+
+  <section class="panel">
+    <h2>➕ Registrar alimento</h2>
+    <form class="form" id="add">
+      <div><label for="meal">Comida</label><select id="meal"></select></div>
+      <div><label for="food">Alimento</label><select id="food"></select></div>
+      <div><label for="amount">Cantidad</label><input id="amount" type="number" min="0.1" step="0.1" value="100" required></div>
+      <div><label for="unit">Unidad</label><input id="unit" disabled></div>
+      <button type="submit">Agregar</button>
+    </form>
+    <p class="hint">Pollo en crudo · arroz y lentejas cocidos · avena seca · huevos por unidad. Los valores nutricionales son aproximados.</p>
+  </section>
+
+  <section class="panel">
+    <div class="row">
+      <h2>🍽️ Comidas del día</h2>
+      <div class="row">
+        <span class="status" id="dayLabel"></span>
+        <button class="secondary" id="copyPrev">Copiar día anterior</button>
+      </div>
+    </div>
+    <div class="meals" id="meals"></div>
+  </section>
+
+  <section class="panel">
+    <h2>📅 Resumen de la semana seleccionada</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Día</th><th>Calorías</th><th>Proteína</th><th>Carbohidratos</th><th>Grasas</th></tr></thead>
+        <tbody id="weekly"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="row"><h2>⚖️ Peso y medidas</h2><span class="status" id="weightLabel"></span></div>
+    <form class="form auto" id="weightForm">
+      <div><label for="weight">Peso (kg)</label><input id="weight" type="number" step="0.1" min="20" max="400" required></div>
+      <div><label for="waist">Cintura (cm)</label><input id="waist" type="number" step="0.1" min="0" max="300" placeholder="Opcional · a la altura del ombligo"></div>
+      <div><label for="bodyFat">Grasa corporal (%)</label><input id="bodyFat" type="number" step="0.1" min="0" max="80" placeholder="Opcional"></div>
+      <div><label for="weightNote">Nota</label><input id="weightNote" maxlength="200" placeholder="Opcional · ej. en ayunas"></div>
+      <button type="submit">Guardar</button>
+    </form>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Fecha</th><th>Peso</th><th>Cambio</th><th>Cintura</th><th>Grasa</th><th>Nota</th><th></th></tr></thead>
+        <tbody id="weights"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="panel collapsible">
+    <summary><h2>🥗 Alimentos <small class="muted" id="foodCount"></small></h2></summary>
+    <div><label for="foodSearch">Buscar alimento</label><input id="foodSearch" type="search" placeholder="Ej. pollo, avena…" autocomplete="off"></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Alimento</th><th>Base</th><th>Kcal</th><th>Proteína</th><th>Carbohidratos</th><th>Grasas</th><th></th></tr></thead>
+        <tbody id="foods"></tbody>
+      </table>
+    </div>
+    <h3>Añadir alimento</h3>
+    <form class="form auto" id="foodForm">
+      <div class="wide"><label for="foodName">Nombre</label><input id="foodName" maxlength="100" required></div>
+      <div><label for="foodUnit">Base</label><select id="foodUnit"><option value="g">por 100 g</option><option value="unidad">por unidad</option></select></div>
+      <div><label for="foodK">Kcal</label><input id="foodK" type="number" step="0.1" min="0" required></div>
+      <div><label for="foodP">Proteína (g)</label><input id="foodP" type="number" step="0.1" min="0" required></div>
+      <div><label for="foodC">Carbohidratos (g)</label><input id="foodC" type="number" step="0.1" min="0" required></div>
+      <div><label for="foodF">Grasas (g)</label><input id="foodF" type="number" step="0.1" min="0" required></div>
+      <button type="submit">Añadir alimento</button>
+    </form>
+  </details>
+
+  <details class="panel collapsible">
+    <summary><h2>🎯 Metas <small class="muted" id="goalsSummary"></small></h2></summary>
+    <form class="form auto" id="goalsForm">
+      <div><label for="cfg-meta_kcal">Calorías (kcal)</label><input id="cfg-meta_kcal" type="number" min="0" step="1" required></div>
+      <div><label for="cfg-meta_proteina">Proteína (g)</label><input id="cfg-meta_proteina" type="number" min="0" step="1" required></div>
+      <div><label for="cfg-meta_carbohidratos">Carbohidratos (g)</label><input id="cfg-meta_carbohidratos" type="number" min="0" step="1" required></div>
+      <div><label for="cfg-meta_grasas">Grasas (g)</label><input id="cfg-meta_grasas" type="number" min="0" step="1" required></div>
+      <div><label for="cfg-altura_m">Altura (m)</label><input id="cfg-altura_m" type="number" min="1" max="2.5" step="0.01" required></div>
+      <div><label for="cfg-peso_inicial_kg">Peso inicial (kg)</label><input id="cfg-peso_inicial_kg" type="number" min="20" max="400" step="0.1" required></div>
+      <button type="submit">Guardar metas</button>
+    </form>
+  </details>
+
+  <details class="panel collapsible" id="connPanel">
+    <summary><h2>☁️ Google Sheets <small class="muted" id="connSummary"></small></h2></summary>
+    <p class="muted">Google Sheets es la base de datos. La web guarda una copia en este navegador para funcionar sin conexión y sube los cambios pendientes cuando vuelve a conectarse.</p>
+    <form class="form auto" id="settingsForm">
+      <div class="wide"><label for="endpoint">URL del Apps Script desplegado</label><input id="endpoint" placeholder="https://script.google.com/macros/s/.../exec"></div>
+      <div><label for="secret">Clave de sincronización</label><input id="secret" type="password" placeholder="FITTRACKER_SECRET"></div>
+      <button type="submit">Guardar y conectar</button>
+    </form>
+    <p class="status" id="connStatus" role="status"></p>
+    <p class="hint">No publiques esta web con la URL y la clave guardadas en un equipo compartido. La clave queda en este navegador; para uso multiusuario implementa OAuth.</p>
+  </details>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
