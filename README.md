@@ -2,22 +2,55 @@
 
 Web estática para registrar comidas, entrenamientos, peso y medidas en una recomposición corporal, usando **Google Sheets como base de datos**. No requiere instalar dependencias.
 
-Archivos: `index.html` (estructura), `styles.css` (estilos), `app.js` (lógica) y `Code.gs` (backend en Apps Script).
+Cada persona inicia sesión con su cuenta de Google y sus datos se guardan en una hoja **FitTracker** de **su propio Google Drive**. No hay servidor: la web habla directamente con las APIs de Google.
 
-## Empezar
+Archivos: `index.html` (estructura), `styles.css` (estilos), `app.js` (lógica), `sheets.js` (login y acceso a Google Sheets/Drive), `config.js` (Client ID de Google), `manifest.webmanifest` + `sw.js` + `icons/` (PWA).
 
-Abre `index.html` en el navegador. Sin conexión a Sheets funciona en modo local: los cambios quedan en este navegador y se suben al conectar.
+## Configurar Google (una sola vez, gratis)
 
-## Google Sheets
+1. Entra a [Google Cloud Console](https://console.cloud.google.com/) y crea un proyecto (ej. `FitTracker`).
+2. En **APIs y servicios > Biblioteca**, habilita **Google Sheets API** y **Google Drive API**.
+3. En **APIs y servicios > Pantalla de consentimiento de OAuth** (Google Auth Platform):
+   - Tipo de usuario: **Externo**.
+   - Nombre de la app, correo de soporte y correo del desarrollador.
+   - Permisos (scopes): añade `.../auth/drive.file`.
+   - **Usuarios de prueba:** añade el correo de cada persona que vaya a usar la app (máx. 100 mientras esté en modo prueba).
+4. En **APIs y servicios > Credenciales > Crear credenciales > ID de cliente de OAuth**:
+   - Tipo: **Aplicación web**.
+   - **Orígenes de JavaScript autorizados:** `https://fittraker-blush.vercel.app` y `http://localhost:8080` (sin `/` final).
+5. Copia el **ID de cliente** (termina en `.apps.googleusercontent.com`) en `config.js`. No es secreto: Google solo lo acepta desde los orígenes autorizados.
 
-1. Crea una hoja de cálculo vacía en Google Sheets.
-2. En **Extensiones > Apps Script**, pega `Code.gs`.
-3. En **Configuración del proyecto > Propiedades de secuencia de comandos**, crea `FITTRACKER_SECRET` con una clave larga aleatoria.
-4. (Opcional) Ejecuta `setup()` para crear las hojas; si no, se crean en la primera sincronización.
-5. En **Implementar > Nueva implementación**, elige **Aplicación web**, ejecutar como **Yo**, acceso **Cualquier persona**. Copia la URL terminada en `/exec`.
-6. En la web, pega la URL y la clave y pulsa **Guardar y conectar**.
+## Publicar
 
-Si actualizas `Code.gs`, crea una nueva versión en **Implementar > Gestionar implementaciones** para que la URL use el código nuevo.
+Está desplegada en Vercel: `https://fittraker-blush.vercel.app`. Al importar el repo, usa el preset **Other**, sin comando de build ni directorio de salida. Cada push a `main` se publica solo.
+
+El login con Google solo funciona en la URL de producción; las URLs de preview de Vercel no están autorizadas en Google Cloud.
+
+Para probar en local (Google no acepta `file://`):
+
+```bash
+python3 -m http.server 8080
+```
+
+y abre `http://localhost:8080`.
+
+## Instalar como app (PWA)
+
+- **Android (Chrome):** menú ⋮ → **Instalar app** / **Agregar a pantalla principal**.
+- **iPhone (Safari):** botón Compartir → **Agregar a pantalla de inicio**.
+
+Se abre a pantalla completa y carga sin conexión. El service worker pide siempre la última versión cuando hay internet, así que cada deploy llega solo. Si cambias la lista de archivos, sube la versión de `CACHE` en `sw.js`.
+
+## Uso
+
+- La primera vez se muestra una bienvenida con **Continuar con Google** o **Probar sin cuenta**. En modo local, un aviso arriba recuerda que los datos están solo en ese navegador.
+- Cada sección muestra un tip la primera vez; desaparece al tocar **Entendido**.
+
+- Pulsa **Continuar con Google** en el panel **☁️ Cuenta de Google**. La primera vez se crea la hoja `FitTracker` en tu Drive con todas las pestañas, los alimentos y la rutina iniciales. En otros dispositivos se reutiliza la misma hoja.
+- La app solo puede ver los archivos que ella misma crea (`drive.file`); no tiene acceso al resto de tu Drive.
+- Sin sesión, funciona en modo local: los datos quedan solo en este navegador. Al iniciar sesión por primera vez te ofrece subirlos a tu hoja.
+- Google entrega sesiones de 1 hora. Cuando caduca, los cambios se guardan en el navegador y se suben al pulsar **Sincronizar** o **Reconectar**.
+- Cada cuenta tiene su propia copia local, así que en el mismo navegador pueden alternar varias personas con **Cerrar sesión**.
 
 ## Estructura de la base de datos
 
@@ -37,18 +70,18 @@ Cada hoja es una tabla: la fila 1 tiene los encabezados y cada fila siguiente es
 - **Rutina:** se crea con la rutina PPL + Torso/Pierna. Edítala en la hoja (ejercicios, series, rango de reps) y pulsa **Sincronizar**. `Activo = FALSE` quita un ejercicio. `Aproximación` usa el formato `50%×8 · 80%×3-4` (% del peso efectivo × reps) y la web calcula los kilos redondeando a 2.5 kg. Para añadir una sesión nueva, usa un nombre nuevo en `Sesión`.
 - **Series:** una fila por serie efectiva. La web sugiere la sesión según la semana (la primera que aún no hiciste), muestra lo que hiciste la última vez y aplica doble progresión: si todas las series llegaron al tope del rango de reps, sugiere subir 2.5 kg; si no, mantener el peso y sumar reps.
 - **Borrado lógico:** eliminar un registro, una serie o un peso marca `Eliminado = TRUE` y conserva la fila.
-- **Config:** contiene `meta_kcal`, `meta_proteina`, `meta_carbohidratos`, `meta_grasas`, `altura_m`, `peso_inicial_kg`, `meta_sesiones_semana` y `version_esquema` (no la edites).
+- **Config:** contiene `meta_kcal`, `meta_proteina`, `meta_carbohidratos`, `meta_grasas`, `altura_m`, `peso_inicial_kg` y `meta_sesiones_semana`.
 - **Rachas:** entreno = semanas seguidas (lunes a domingo) con al menos `meta_sesiones_semana` días entrenados, sin importar qué día; proteína = días seguidos llegando a `meta_proteina`. La semana o el día en curso no rompen la racha hasta que terminan.
 
 ## Sincronización
 
-- Al abrir la web, primero sube los cambios pendientes y después descarga los datos de Sheets.
+- Al abrir la web (con sesión activa), primero sube los cambios pendientes y después descarga los datos de Sheets.
 - Cada cambio se guarda en Sheets unos instantes después. Sin conexión queda pendiente en el navegador y se sube al reconectar o al pulsar **Sincronizar**.
 - Si editas la hoja a mano, pulsa **Sincronizar** para ver los cambios en la web.
 - Cada fila se actualiza por su clave (ID o Fecha), nunca se reescribe la hoja completa. Si dos dispositivos modifican el mismo registro, prevalece el último que se guarda.
 
-**Migración desde v1:** los datos guardados en el navegador y las filas antiguas de `Registros` (sin ID) se convierten automáticamente con IDs `v1-<fecha>-<n>`, para no duplicarlos. Las kcal y macros de alimentos en gramos se recalculan, porque la v1 las guardaba 100 veces menores. En el navegador se conserva una copia en `fittracker-v1-respaldo`.
+**Migración desde la versión con Apps Script:** la app ya no usa `Code.gs`. Abre la web en el navegador donde la usabas, inicia sesión y acepta subir los datos locales: se copian a tu nueva hoja. La hoja antigua queda intacta como respaldo.
 
-**Seguridad:** está pensado para uso personal. Cualquiera que tenga la URL y la clave puede leer y escribir en la hoja. No las compartas. Para una app multiusuario, usa un backend con OAuth.
+**Privacidad:** cada usuario solo accede a su propia hoja. El token de Google se guarda en `sessionStorage` y se descarta al cerrar la pestaña o la sesión.
 
 **Nota:** los valores nutricionales son estimaciones; revisa etiquetas y porciones reales.

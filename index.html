@@ -2,24 +2,111 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>FitTracker · Recomposición</title>
+  <meta name="theme-color" content="#0a0e0c">
+  <meta name="description" content="Registra comidas, macros, entrenamientos y peso.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FitTracker">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="wrap">
+<main class="onboarding" id="landing" hidden>
+  <div class="slides" id="slides">
+    <section class="slide">
+      <div class="slide-art">
+        <img class="app-icon" src="icons/icon.svg" alt="">
+      </div>
+      <h1>FitTracker</h1>
+      <p class="lead">Tu nutrición y tu entrenamiento en un solo lugar.</p>
+      <p class="muted">Registra lo que comes, cada serie del gym y tu peso. Mira cómo progresas semana a semana.</p>
+    </section>
+
+    <section class="slide">
+      <div class="slide-art">
+        <div class="mock">
+          <div class="mock-title">Hoy · 1 840 / 2 200 kcal</div>
+          <div class="mock-bar"><span style="width:84%;background:var(--kcal)"></span></div>
+          <div class="mock-macros">
+            <div><b style="color:var(--protein)">142 g</b><small>Proteína</small><div class="mock-bar"><span style="width:89%;background:var(--protein)"></span></div></div>
+            <div><b style="color:var(--carbs)">190 g</b><small>Carbos</small><div class="mock-bar"><span style="width:86%;background:var(--carbs)"></span></div></div>
+            <div><b style="color:var(--fat)">61 g</b><small>Grasas</small><div class="mock-bar"><span style="width:83%;background:var(--fat)"></span></div></div>
+          </div>
+        </div>
+      </div>
+      <h2>🍽️ Comidas y macros</h2>
+      <p class="muted">Elige el alimento y la cantidad. La app calcula calorías, proteína, carbos y grasas contra tus metas.</p>
+    </section>
+
+    <section class="slide">
+      <div class="slide-art">
+        <div class="mock">
+          <div class="mock-title">Press de pecho plano</div>
+          <div class="mock-set"><span>1</span><b>60 kg × 12</b><i>✓</i></div>
+          <div class="mock-set"><span>2</span><b>60 kg × 12</b><i>✓</i></div>
+          <div class="mock-set ghost"><span>3</span><b>60 kg × 12</b><i>✓</i></div>
+          <div class="mock-tip">📈 Llegaste al tope de reps: sube a 62.5 kg</div>
+        </div>
+      </div>
+      <h2>🏋️ Tu rutina, serie a serie</h2>
+      <p class="muted">Ve lo que levantaste la última vez, tu calentamiento, el descanso y cuándo toca subir peso.</p>
+    </section>
+
+    <section class="slide">
+      <div class="slide-art">
+        <div class="mock">
+          <div class="mock-title">Peso corporal · kg</div>
+          <svg viewBox="0 0 260 90" class="mock-chart">
+            <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7db7ff" stop-opacity=".35"/><stop offset="1" stop-color="#7db7ff" stop-opacity="0"/></linearGradient></defs>
+            <path d="M0 18 L40 26 L80 24 L120 38 L160 44 L200 56 L260 64 L260 90 L0 90Z" fill="url(#g1)"/>
+            <path d="M0 18 L40 26 L80 24 L120 38 L160 44 L200 56 L260 64" fill="none" stroke="#7db7ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="260" cy="64" r="4" fill="#7db7ff"/>
+          </svg>
+          <div class="mock-streaks"><span>🏋️ 6 semanas</span><span>🥩 12 días</span></div>
+        </div>
+      </div>
+      <h2>🔥 Progreso y rachas</h2>
+      <p class="muted">Sigue tu peso y medidas, y mantén tus rachas de entrenos y de proteína.</p>
+    </section>
+  </div>
+
+  <footer class="onb-footer">
+    <div class="dots" id="dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <button class="google-btn" id="landingSignIn">
+      <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+      Continuar con Google
+    </button>
+    <button class="secondary install-btn" data-install hidden>📲 Instalar app</button>
+    <button class="link-btn" id="tryLocal">Probar sin cuenta</button>
+    <p class="status" id="landingStatus" role="status"></p>
+    <p class="hint">Con Google, tus datos se guardan en una hoja <b>FitTracker</b> de <b>tu</b> Drive y los ves en todos tus dispositivos. Sin cuenta, quedan solo en este navegador.</p>
+  </footer>
+</main>
+
+<div class="wrap" id="app" hidden>
+  <div class="banner" id="localBanner" hidden>
+    <span>📱 <b>Modo local:</b> tus datos solo están en este navegador.</span>
+    <button id="bannerSignIn">Guardar en Google</button>
+  </div>
   <header>
     <div>
       <h1>💪 FitTracker</h1>
       <div class="muted" id="subtitle"></div>
     </div>
     <div class="row">
+      <button class="secondary install-btn" data-install hidden>📲 Instalar</button>
       <button class="secondary" id="export">Exportar CSV</button>
       <button class="secondary" id="sync">Sincronizar</button>
     </div>
   </header>
   <p class="status" id="status" role="status"></p>
   <div class="streaks" id="streaks"></div>
+  <div class="tip" data-tip="calendar" hidden><span>📅 Toca un día del calendario para ver o registrar lo de esa fecha. Empiezas en hoy.</span><button class="link-btn" data-tip-close>Entendido</button></div>
 
   <section class="panel">
     <div class="calendar-head">
@@ -43,6 +130,7 @@
   </nav>
 
   <div class="tabpanel" id="tab-entreno" role="tabpanel" aria-labelledby="tab-btn-entreno" hidden>
+    <div class="tip" data-tip="workout" hidden><span>🏋️ Te marcamos la sesión que te toca, pero puedes tocar otra. Anota peso y reps de cada serie y toca <b>✓</b>. Lo gris es lo de la última vez: si dejas el campo vacío, se guarda eso.</span><button class="link-btn" data-tip-close>Entendido</button></div>
     <section class="panel">
       <div class="row"><h2>🏋️ Entrenamiento</h2><span class="status" id="workoutLabel"></span></div>
       <div class="sessions" id="sessions"></div>
@@ -63,6 +151,7 @@
   </div>
 
   <div class="tabpanel" id="tab-nutricion" role="tabpanel" aria-labelledby="tab-btn-nutricion">
+  <div class="tip" data-tip="nutrition" hidden><span>🍽️ Elige comida, alimento y cantidad y toca <b>Agregar</b>. Las barras de arriba muestran cuánto te falta para tus metas.</span><button class="link-btn" data-tip-close>Entendido</button></div>
   <div class="metrics" id="metrics"></div>
 
   <section class="panel">
@@ -153,17 +242,46 @@
   </section>
 
   <details class="panel collapsible" id="connPanel">
-    <summary><h2>☁️ Google Sheets <small class="muted" id="connSummary"></small></h2></summary>
-    <p class="muted">Google Sheets es la base de datos. La web guarda una copia en este navegador para funcionar sin conexión y sube los cambios pendientes cuando vuelve a conectarse.</p>
-    <form class="form auto" id="settingsForm">
-      <div class="wide"><label for="endpoint">URL del Apps Script desplegado</label><input id="endpoint" placeholder="https://script.google.com/macros/s/.../exec"></div>
-      <div><label for="secret">Clave de sincronización</label><input id="secret" type="password" placeholder="FITTRACKER_SECRET"></div>
-      <button type="submit">Guardar y conectar</button>
-    </form>
+    <summary><h2>☁️ Cuenta de Google <small class="muted" id="connSummary"></small></h2></summary>
+    <div id="signedOut">
+      <p class="muted">Inicia sesión para guardar tus datos en <b>tu</b> Google Drive, en una hoja llamada <b>FitTracker</b>, y usarlos desde cualquier dispositivo. La app solo puede ver las hojas que ella misma crea.</p>
+      <button id="googleSignIn">Continuar con Google</button>
+      <p class="hint" id="notConfigured" hidden>Falta configurar <code>googleClientId</code> en <code>config.js</code> (ver README).</p>
+    </div>
+    <div id="signedIn" hidden>
+      <p>Conectado como <b id="accountName"></b></p>
+      <div class="row" style="justify-content:flex-start">
+        <a class="button secondary" id="openSheet" target="_blank" rel="noopener">Abrir mi hoja ↗</a>
+        <button id="reconnect" hidden>Reconectar</button>
+        <button class="danger" id="signOut">Cerrar sesión</button>
+      </div>
+    </div>
     <p class="status" id="connStatus" role="status"></p>
-    <p class="hint">No publiques esta web con la URL y la clave guardadas en un equipo compartido. La clave queda en este navegador; para uso multiusuario implementa OAuth.</p>
+    <p class="hint">Sin sesión, la app funciona en modo local y guarda los datos solo en este navegador.</p>
   </details>
 </div>
+<dialog class="sheet" id="installHelp" aria-labelledby="installTitle">
+  <h2 id="installTitle">📲 Instalar FitTracker</h2>
+  <div id="installIos">
+    <ol class="steps">
+      <li>Toca <b>Compartir</b> <span class="key"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg></span> en la barra de Safari.</li>
+      <li>Baja y toca <b>Agregar a pantalla de inicio</b> <span class="key">⊞</span>.</li>
+      <li>Toca <b>Agregar</b>. ¡Listo! Ábrela desde el ícono 🏋️.</li>
+    </ol>
+    <p class="hint">Si no ves la opción, abre esta página en <b>Safari</b>.</p>
+  </div>
+  <div id="installOther" hidden>
+    <ol class="steps">
+      <li>Abre el menú del navegador <span class="key">⋮</span>.</li>
+      <li>Toca <b>Instalar app</b> o <b>Agregar a pantalla principal</b>.</li>
+      <li>Confirma y ábrela desde el ícono.</li>
+    </ol>
+  </div>
+  <form method="dialog"><button>Entendido</button></form>
+</dialog>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="config.js"></script>
+<script src="sheets.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

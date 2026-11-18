@@ -2,7 +2,10 @@
 
 const STORE_KEY = 'fittracker-v2';
 const LEGACY_KEY = 'fittracker-v1';
-const SETTINGS_KEY = 'fittracker-settings';
+const STORE_PREFIX = 'fittracker-v3:';
+const ACCOUNT_KEY = 'fittracker-account';
+const LOCAL_MODE_KEY = 'fittracker-local-mode';
+const TIPS_KEY = 'fittracker-tips-vistos';
 const MEALS = ['Desayuno', 'Almuerzo', 'Merienda', 'Cena'];
 const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const TABLES = ['Alimentos', 'Config', 'Registros', 'Peso', 'Rutina', 'Series'];
@@ -15,8 +18,17 @@ const MACROS = [
 ];
 const CONFIG_FIELDS = ['meta_kcal', 'meta_proteina', 'meta_carbohidratos', 'meta_grasas', 'altura_m', 'peso_inicial_kg', 'meta_sesiones_semana'];
 const DEFAULT_CONFIG = { meta_kcal: 2200, meta_proteina: 160, meta_carbohidratos: 220, meta_grasas: 73, altura_m: 1.7, peso_inicial_kg: 87, meta_sesiones_semana: 4 };
+const CONFIG_DESCRIPTIONS = {
+  meta_kcal: 'Meta diaria de calorías (kcal)',
+  meta_proteina: 'Meta diaria de proteína (g)',
+  meta_carbohidratos: 'Meta diaria de carbohidratos (g)',
+  meta_grasas: 'Meta diaria de grasas (g)',
+  altura_m: 'Altura en metros',
+  peso_inicial_kg: 'Peso al iniciar el plan (kg)',
+  meta_sesiones_semana: 'Sesiones de entreno por semana para mantener la racha'
+};
 
-// Debe coincidir con DEFAULT_FOODS de Code.gs. El orden importa para migrar datos v1.
+// El orden importa para migrar los datos de la v1 (guardaban el índice del alimento).
 // Valores por 100 g (unidad "g") o por unidad (unidad "unidad").
 const DEFAULT_FOODS = [
   ['pollo-crudo', 'Pechuga de pollo cruda', 'g', 120, 23, 0, 2.6],
@@ -32,7 +44,7 @@ const DEFAULT_FOODS = [
   ['verduras', 'Verduras variadas', 'g', 30, 2, 5, 0.3]
 ].map(([id, name, unit, k, p, c, f]) => ({ id, name, unit, k, p, c, f, active: true }));
 
-// Debe coincidir con DEFAULT_ROUTINE de Code.gs (solo se usa hasta conectar Google Sheets).
+// Rutina inicial: se copia a la hoja Rutina al crearla y luego se edita allí.
 const DEFAULT_ROUTINE = [
   ['push-press-plano', 'Push', 'Lunes', 1, 'Press de pecho plano (Máquina o Banca)', 'Pecho', 3, 6, 8, '1–2', '50%×8 · 80%×3-4', '2–3 min | Pesado y controlado (2 seg al bajar).'],
   ['push-press-inclinado', 'Push', 'Lunes', 2, 'Press inclinado en máquina', 'Pecho', 3, 6, 8, '1–2', '75%×4', '2–3 min | Enfoque en pecho superior.'],
@@ -92,8 +104,12 @@ function slug(s) {
 }
 
 // ---------- Almacenamiento local (caché + cola de cambios pendientes) ----------
+//
+// Cada cuenta de Google tiene su propia copia local (fittracker-v3:<email>), así
+// varias personas pueden usar el mismo navegador sin mezclar datos. Sin sesión
+// iniciada se usa la copia anónima (fittracker-v2).
 
-let db, pending, settings;
+let db, pending, account;
 let selectedDate = new Date();
 selectedDate.setHours(12, 0, 0, 0);
 let viewMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12);
@@ -105,6 +121,7 @@ const defaultDb = () => ({
   entries: [], foods: DEFAULT_FOODS.map(f => ({ ...f })), weights: [], config: { ...DEFAULT_CONFIG },
   routine: DEFAULT_ROUTINE.map(x => ({ ...x })), sets: []
 });
+const storeKey = () => (account?.email ? `${STORE_PREFIX}${account.email.toLowerCase()}` : STORE_KEY);
 
 function readJson(key) {
   const raw = localStorage.getItem(key);
@@ -118,21 +135,13 @@ function readJson(key) {
 }
 
 function loadStore() {
-  const stored = readJson(STORE_KEY);
+  const stored = readJson(storeKey());
   db = { ...defaultDb(), ...(stored?.db || {}) };
   pending = { ...emptyPending(), ...(stored?.pending || {}) };
-  settings = readJson(SETTINGS_KEY) || {};
-  const oldEndpoint = localStorage.getItem('fittracker-endpoint');
-  if (!settings.endpoint && oldEndpoint) {
-    settings = { endpoint: oldEndpoint, secret: localStorage.getItem('fittracker-secret') || '' };
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    localStorage.removeItem('fittracker-endpoint');
-    localStorage.removeItem('fittracker-secret');
-  }
 }
 
 function persist() {
-  localStorage.setItem(STORE_KEY, JSON.stringify({ db, pending }));
+  localStorage.setItem(storeKey(), JSON.stringify({ db, pending }));
 }
 
 function upsertBy(list, field, row, remove) {
@@ -163,6 +172,17 @@ function change(table, rows) {
 }
 
 const pendingCount = () => TABLES.reduce((n, t) => n + Object.keys(pending[t]).length, 0);
+const configRow = key => ({ key, value: db.config[key], description: CONFIG_DESCRIPTIONS[key] || '' });
+
+// Encola todo el contenido local para subirlo a una hoja nueva.
+function queueEverything() {
+  db.foods.forEach(r => queueRow('Alimentos', { ...r }));
+  db.routine.forEach(r => queueRow('Rutina', { ...r }));
+  db.entries.forEach(r => queueRow('Registros', { ...r }));
+  db.weights.forEach(r => queueRow('Peso', { ...r }));
+  db.sets.forEach(r => queueRow('Series', { ...r }));
+  Object.keys(db.config).forEach(k => queueRow('Config', configRow(k)));
+}
 
 // Convierte el formato v1 ({fecha: [{meal, food: índice, amount}]}) en filas de Registros.
 function migrateLegacy() {
@@ -185,9 +205,9 @@ function migrateLegacy() {
   persist();
 }
 
-// ---------- Sincronización con Google Sheets ----------
+// ---------- Cuenta de Google y sincronización ----------
 
-const isConnected = () => Boolean(settings.endpoint && settings.secret);
+const isConnected = () => Boolean(account?.spreadsheetId && GSheets.hasToken());
 let chain = Promise.resolve();
 let flushTimer;
 
@@ -199,40 +219,27 @@ function serial(task) {
 function setStatus(text) {
   $('status').textContent = text;
   $('connStatus').textContent = text;
+  if (connecting) $('landingStatus').textContent = text;
 }
 
 function idleStatus() {
   const n = pendingCount();
-  if (!isConnected()) return n ? `Modo local · ${n} cambios se subirán al conectar Google Sheets.` : 'Modo local · configura Google Sheets abajo.';
-  return n ? `${n} cambios pendientes de subir.` : `Sincronizado con Google Sheets · ${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`;
+  if (!account) return n ? `Modo local · ${n} cambios se subirán al iniciar sesión con Google.` : 'Modo local · inicia sesión con Google para guardar en tu Drive.';
+  if (!GSheets.hasToken()) return `Sesión de Google caducada · toca Sincronizar para reconectar${n ? ` (${n} cambios pendientes)` : ''}.`;
+  return n ? `${n} cambios pendientes de subir.` : `Guardado en tu Google Sheets · ${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-async function api(action, payload = {}) {
-  const res = await fetch(settings.endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ secret: settings.secret, action, ...payload })
-  });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    throw new Error('respuesta inválida; revisa que el acceso de la implementación sea "Cualquier persona"');
-  }
-  if (!data.ok) {
-    const msg = data.error || 'error desconocido';
-    throw new Error(/Tabla desconocida/.test(msg) ? msg + ' (despliega una nueva versión del Apps Script)' : msg);
-  }
-  return data;
+function errorStatus(e) {
+  if (e instanceof GSheets.AuthError) return idleStatus();
+  return `No se pudo sincronizar: ${e.message}. ${pendingCount()} cambios pendientes guardados en este navegador.`;
 }
 
 async function flush() {
   for (const table of TABLES) {
     const items = Object.entries(pending[table]);
-    for (let i = 0; i < items.length; i += 200) {
-      const chunk = items.slice(i, i + 200);
-      await api('upsert', { table, records: chunk.map(([, row]) => row) });
+    for (let i = 0; i < items.length; i += 300) {
+      const chunk = items.slice(i, i + 300);
+      await GSheets.upsert(account.spreadsheetId, table, chunk.map(([, row]) => row));
       chunk.forEach(([key, row]) => { if (pending[table][key] === row) delete pending[table][key]; });
       persist();
     }
@@ -240,15 +247,18 @@ async function flush() {
 }
 
 async function pull() {
-  const data = await api('load');
+  const data = await GSheets.load(account.spreadsheetId, {
+    Alimentos: DEFAULT_FOODS.map(f => ({ ...f, updatedAt: nowIso() })),
+    Rutina: DEFAULT_ROUTINE.map(x => ({ ...x, updatedAt: nowIso() })),
+    Config: Object.keys(DEFAULT_CONFIG).map(key => ({ key, value: DEFAULT_CONFIG[key], description: CONFIG_DESCRIPTIONS[key] || '' }))
+  });
   db = {
     entries: data.entries,
     foods: data.foods.length ? data.foods : defaultDb().foods,
     weights: data.weights,
     config: { ...DEFAULT_CONFIG, ...data.config },
-    // Un backend sin actualizar no devuelve rutina/series: se conservan las locales.
-    routine: data.routine?.length ? data.routine : db.routine,
-    sets: data.sets || db.sets
+    routine: data.routine.length ? data.routine : defaultDb().routine,
+    sets: data.sets
   };
   TABLES.forEach(t => Object.values(pending[t]).forEach(row => applyRow(t, row)));
   persist();
@@ -257,7 +267,7 @@ async function pull() {
 }
 
 function sync() {
-  if (!isConnected()) { setStatus(idleStatus()); return Promise.resolve(); }
+  if (!isConnected()) { setStatus(idleStatus()); renderAccount(); return Promise.resolve(); }
   clearTimeout(flushTimer);
   return serial(async () => {
     try {
@@ -266,8 +276,9 @@ function sync() {
       await pull();
       setStatus(idleStatus());
     } catch (e) {
-      setStatus(`No se pudo sincronizar: ${e.message}. ${pendingCount()} cambios pendientes guardados en este navegador.`);
+      setStatus(errorStatus(e));
     }
+    renderAccount();
   });
 }
 
@@ -281,9 +292,165 @@ function scheduleFlush() {
       await flush();
       setStatus(idleStatus());
     } catch (e) {
-      setStatus(`Sin conexión con Google Sheets (${e.message}). ${pendingCount()} cambios pendientes.`);
+      setStatus(errorStatus(e));
+      renderAccount();
     }
   }), 800);
+}
+
+const hasUserData = () => db.entries.length + db.weights.length + db.sets.length > 0;
+
+// Debe ejecutarse desde un clic (abre la ventana de Google).
+let connecting = false;
+
+async function connectGoogle() {
+  const previous = account;
+  connecting = true;
+  $('landingStatus').textContent = '';
+  try {
+    setStatus('Conectando con Google…');
+    await GSheets.signIn(account?.email);
+    const user = await GSheets.getUser();
+    const sameAccount = account?.email === user.email;
+    if (!sameAccount) {
+      persist(); // guarda la copia actual antes de cambiar de cuenta
+      const anonymous = account ? null : { db, pending };
+      account = { email: user.email, name: user.name, spreadsheetId: null };
+      loadStore();
+      let spreadsheetId = await GSheets.findSpreadsheet();
+      if (!spreadsheetId) {
+        setStatus('Creando tu hoja FitTracker en Google Drive…');
+        spreadsheetId = await GSheets.createSpreadsheet('FitTracker');
+        const importLocal = anonymous && (anonymous.db.entries.length + anonymous.db.weights.length + anonymous.db.sets.length > 0) &&
+          confirm(`¿Subir a tu cuenta los datos de este navegador? (${anonymous.db.entries.length} comidas, ${anonymous.db.weights.length} pesos, ${anonymous.db.sets.length} series)`);
+        if (importLocal && !hasUserData()) {
+          db = anonymous.db;
+          pending = emptyPending();
+          queueEverything();
+          localStorage.removeItem(STORE_KEY); // ya pertenecen a esta cuenta
+        }
+      }
+      account.spreadsheetId = spreadsheetId;
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify(account));
+      persist();
+    }
+    showView();
+    render();
+    await sync();
+  } catch (e) {
+    if (account && !account.spreadsheetId) { // falló a mitad del cambio de cuenta
+      account = previous;
+      loadStore();
+      render();
+    }
+    setStatus(`No se pudo conectar con Google: ${e.message}.`);
+    renderAccount();
+  } finally {
+    connecting = false;
+  }
+}
+
+function signOut() {
+  if (!confirm('¿Cerrar sesión? Tus datos quedan en tu Google Sheets.')) return;
+  persist();
+  GSheets.signOut();
+  account = null;
+  localStorage.removeItem(ACCOUNT_KEY);
+  localStorage.removeItem(LOCAL_MODE_KEY);
+  loadStore();
+  fillForms();
+  render();
+  setStatus('');
+  showView();
+}
+
+// Sin cuenta y sin haber elegido el modo local, se muestra la pantalla de inicio.
+// Quien ya tiene datos locales entra directo a la app.
+function showView() {
+  const landing = !account && !localStorage.getItem(LOCAL_MODE_KEY) && !hasUserData();
+  $('landing').hidden = !landing;
+  $('app').hidden = landing;
+  $('localBanner').hidden = Boolean(account);
+  window.scrollTo(0, 0);
+}
+
+function bindOnboarding() {
+  const slides = $('slides');
+  const dots = [...$('dots').children];
+  const update = () => {
+    const i = slides.clientWidth ? Math.round(slides.scrollLeft / slides.clientWidth) : 0;
+    dots.forEach((d, j) => d.classList.toggle('on', j === i));
+  };
+  dots.forEach((d, j) => { d.onclick = () => slides.scrollTo({ left: j * slides.clientWidth, behavior: 'smooth' }); });
+  slides.addEventListener('scroll', update, { passive: true });
+  update();
+}
+
+// Cada tip se muestra hasta que se toca "Entendido", una sola vez por navegador.
+function bindTips() {
+  const seen = new Set(readJson(TIPS_KEY) || []);
+  document.querySelectorAll('[data-tip]').forEach(tip => {
+    tip.hidden = seen.has(tip.dataset.tip);
+    tip.querySelector('[data-tip-close]').onclick = () => {
+      tip.hidden = true;
+      seen.add(tip.dataset.tip);
+      localStorage.setItem(TIPS_KEY, JSON.stringify([...seen]));
+    };
+  });
+}
+
+// Android/PC (Chrome, Edge) permiten abrir el instalador; en iPhone solo se puede explicar los pasos.
+function bindInstall() {
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const buttons = document.querySelectorAll('[data-install]');
+  let deferred = null;
+  const show = visible => buttons.forEach(b => { b.hidden = !visible; });
+
+  show(!installed && ios);
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    show(true);
+  });
+  window.addEventListener('appinstalled', () => { deferred = null; show(false); });
+
+  buttons.forEach(b => {
+    b.onclick = async () => {
+      if (deferred) {
+        deferred.prompt();
+        const { outcome } = await deferred.userChoice;
+        if (outcome === 'accepted') { deferred = null; show(false); }
+        return;
+      }
+      $('installIos').hidden = !ios;
+      $('installOther').hidden = ios;
+      $('installHelp').showModal();
+    };
+  });
+}
+
+function startLocal() {
+  localStorage.setItem(LOCAL_MODE_KEY, '1');
+  setStatus(idleStatus());
+  showView();
+}
+
+function renderAccount() {
+  const configured = GSheets.isConfigured();
+  $('connSummary').textContent = !account ? '· sin conectar' : GSheets.hasToken() ? `· ${account.email}` : '· sesión caducada';
+  $('signedOut').hidden = Boolean(account);
+  $('signedIn').hidden = !account;
+  $('googleSignIn').disabled = !configured;
+  $('landingSignIn').disabled = !configured;
+  $('bannerSignIn').disabled = !configured;
+  $('notConfigured').hidden = configured;
+  if (account) {
+    $('accountName').textContent = account.name ? `${account.name} (${account.email})` : account.email;
+    $('openSheet').href = account.spreadsheetId ? GSheets.sheetUrl(account.spreadsheetId) : '#';
+    $('reconnect').hidden = GSheets.hasToken();
+  }
 }
 
 // ---------- Dominio ----------
@@ -593,7 +760,7 @@ function renderStreaks() {
 
 function renderSummaries() {
   $('goalsSummary').textContent = `· ${goal(MACROS[0])} kcal · ${goal(MACROS[1])} g proteína`;
-  $('connSummary').textContent = isConnected() ? '· conectado' : '· sin conectar';
+  renderAccount();
 }
 
 function renderHeader() {
@@ -757,8 +924,6 @@ function updateUnit(resetAmount) {
 
 function fillForms() {
   CONFIG_FIELDS.forEach(k => { $('cfg-' + k).value = db.config[k] ?? DEFAULT_CONFIG[k]; });
-  $('endpoint').value = settings.endpoint || '';
-  $('secret').value = settings.secret || '';
   fillWeightForm();
 }
 
@@ -841,7 +1006,7 @@ function bindEvents() {
   $('foodSearch').oninput = renderFoodTable;
   $('copyPrev').onclick = copyPreviousDay;
   $('export').onclick = exportCsv;
-  $('sync').onclick = sync;
+  $('sync').onclick = () => (account && !GSheets.hasToken() ? connectGoogle() : sync());
   bindWorkoutEvents();
 
   $('meals').onclick = e => {
@@ -904,28 +1069,37 @@ function bindEvents() {
   $('goalsForm').onsubmit = e => {
     e.preventDefault();
     const rows = CONFIG_FIELDS.map(key => ({ key, value: numOrNull($('cfg-' + key).value) }))
-      .filter(r => r.value != null && r.value !== Number(db.config[r.key]));
+      .filter(r => r.value != null && r.value !== Number(db.config[r.key]))
+      .map(r => ({ ...r, description: CONFIG_DESCRIPTIONS[r.key] || '' }));
     if (rows.length) change('Config', rows);
   };
 
-  $('settingsForm').onsubmit = e => {
-    e.preventDefault();
-    settings = { endpoint: $('endpoint').value.trim(), secret: $('secret').value };
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    renderSummaries();
-    sync();
-  };
+  $('googleSignIn').onclick = connectGoogle;
+  $('landingSignIn').onclick = connectGoogle;
+  $('bannerSignIn').onclick = connectGoogle;
+  $('tryLocal').onclick = startLocal;
+  $('reconnect').onclick = connectGoogle;
+  $('signOut').onclick = signOut;
 
   window.addEventListener('online', sync);
 }
 
 // ---------- Inicio ----------
 
+GSheets.init(window.FITTRACKER_CONFIG?.googleClientId);
+account = readJson(ACCOUNT_KEY);
 loadStore();
-migrateLegacy();
+if (!account) migrateLegacy();
 bindEvents();
+bindOnboarding();
+bindTips();
+bindInstall();
 fillForms();
-$('connPanel').open = !isConnected();
+$('connPanel').open = false;
+showView();
 render();
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 setStatus(idleStatus());
 sync();
