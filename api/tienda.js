@@ -38,9 +38,15 @@ function normalize(product, store) {
     per100.f = scale(field(product, /^grasas (totales )?por porci[oó]n$/i));
     per100.sugar = scale(field(product, /^az[uú]cares por porci[oó]n$/i));
   }
+  const offer = product.items?.[0]?.sellers?.[0]?.commertialOffer || {};
+  const price = offer.Price > 0 ? offer.Price : null;
+  const listPrice = offer.ListPrice > price ? offer.ListPrice : null;
   return {
     found: true,
     store,
+    price,
+    listPrice,
+    url: product.link || null,
     ean: product.items?.map(i => i.ean).find(Boolean) || null,
     name: product.productName,
     brand: product.brand || null,

@@ -1241,6 +1241,37 @@ function presentFood(name, values, sources, code) {
     : `✅ Encontrado en ${sources.join(' y ')}. Revisa los valores (por 100 g) y toca "Añadir alimento".`);
 }
 
+// ---------- Lista de compras (solo local, no se sincroniza) ----------
+
+const SHOP_KEY = 'fittracker-shopping';
+let shopping = readJson(SHOP_KEY) || [];
+
+function saveShopping() {
+  localStorage.setItem(SHOP_KEY, JSON.stringify(shopping));
+  renderShopping();
+}
+
+function renderShopping() {
+  $('shopCount').textContent = shopping.length ? `(${shopping.filter(i => !i.done).length} pendientes)` : '';
+  $('shopEmpty').hidden = shopping.length > 0;
+  $('shopFoot').hidden = !shopping.length;
+  $('shopList').innerHTML = shopping.map(i => {
+    const detail = [i.store, i.price ? `S/ ${i.price.toFixed(2)}` : 'sin precio', i.deal ? 'en oferta' : ''].filter(Boolean).map(esc).join(' · ');
+    const name = i.url ? `<a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.name)}</a>` : esc(i.name);
+    return `<div class="shop-item ${i.done ? 'done' : ''}"><input type="checkbox" data-shop-toggle="${i.id}" ${i.done ? 'checked' : ''} aria-label="Comprado"><div>${name}<small>${detail}</small></div><button type="button" class="secondary shop-del" data-shop-del="${i.id}" aria-label="Quitar">✕</button></div>`;
+  }).join('');
+  const total = shopping.filter(i => !i.done).reduce((t, i) => t + (i.price || 0), 0);
+  $('shopTotal').textContent = `Total pendiente: S/ ${total.toFixed(2)}`;
+}
+
+function addToShopping(r) {
+  const id = `${r.store}|${r.ean || r.name}`;
+  if (shopping.some(i => i.id === id)) { toast('Ya está en tu lista 🛒'); return; }
+  shopping.push({ id, name: r.name, store: r.store, price: r.price, deal: !!r.listPrice, url: r.url, done: false });
+  saveShopping();
+  $('shopPanel').open = true;
+}
+
 let nameResults = [];
 let nameTimer;
 
@@ -1265,7 +1296,12 @@ async function searchByName() {
           ? `<i>${round1(p.k)} kcal</i><i>P ${round1(p.p ?? 0)}</i><i>C ${round1(p.c ?? 0)}</i><i>G ${round1(p.f ?? 0)}</i><i class="store">/100 g</i>`
           : '<i class="off">sin macros · los completas tú</i>';
         const meta = [r.quantity, r.store].filter(Boolean).map(esc).join(' · ');
-        return `<button type="button" class="tpca-item scan-result" data-result="${i}"><span><b>${esc(r.name)}</b><span class="scan-chips">${chips}</span>${meta ? `<small>${meta}</small>` : ''}</span><span aria-hidden="true">›</span></button>`;
+        const off = r.listPrice && r.price ? Math.round((1 - r.price / r.listPrice) * 100) : 0;
+        const price = r.price
+          ? `<span class="scan-price"><b>S/ ${r.price.toFixed(2)}</b>${off ? `<s>S/ ${r.listPrice.toFixed(2)}</s>` : ''}</span>`
+          : '';
+        const deal = off ? '<i class="deal">OFERTA -' + off + '%</i>' : '';
+        return `<div class="scan-row"><button type="button" class="tpca-item scan-result" data-result="${i}"><span><b>${esc(r.name)}</b>${price}<span class="scan-chips">${deal}${chips}</span>${meta ? `<small>${meta}</small>` : ''}</span><span aria-hidden="true">›</span></button><button type="button" class="secondary scan-cart" data-cart="${i}" aria-label="Agregar a la lista de compras">🛒</button></div>`;
       }).join('')
     : '<p class="muted scan-state">Sin resultados para esa palabra. Prueba más corta (ej. "galleta").</p>';
 }
@@ -1402,7 +1438,24 @@ function bindEvents() {
   $('scanName').oninput = () => { clearTimeout(nameTimer); nameTimer = setTimeout(searchByName, 450); };
   $('scanNameForm').onsubmit = e => { e.preventDefault(); clearTimeout(nameTimer); searchByName(); $('scanName').blur(); };
   $('scanX').onclick = closeScan;
+  renderShopping();
+  $('shopList').onclick = e => {
+    const del = e.target.closest('[data-shop-del]');
+    if (del) { shopping = shopping.filter(i => i.id !== del.dataset.shopDel); saveShopping(); }
+  };
+  $('shopList').onchange = e => {
+    const t = e.target.closest('[data-shop-toggle]');
+    const item = t && shopping.find(i => i.id === t.dataset.shopToggle);
+    if (item) { item.done = t.checked; saveShopping(); }
+  };
+  $('shopClear').onclick = () => { shopping = shopping.filter(i => !i.done); saveShopping(); };
   $('scanResults').onclick = e => {
+    const cart = e.target.closest('[data-cart]');
+    if (cart) {
+      const item = nameResults[cart.dataset.cart];
+      if (item) { addToShopping(item); cart.textContent = '✓'; }
+      return;
+    }
     const b = e.target.closest('[data-result]');
     const r = b && nameResults[b.dataset.result];
     if (!r) return;

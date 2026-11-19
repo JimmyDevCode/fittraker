@@ -215,6 +215,16 @@
     </div>
   </section>
 
+  <details class="panel collapsible" id="shopPanel">
+    <summary><h2>🛒 Lista de compras <small class="muted" id="shopCount"></small></h2></summary>
+    <p class="muted" id="shopEmpty">Busca un producto y toca 🛒 para agregarlo con su precio y tienda.</p>
+    <div class="shop-list" id="shopList"></div>
+    <div class="row shop-foot" id="shopFoot" hidden>
+      <b id="shopTotal"></b>
+      <button type="button" class="secondary" id="shopClear">Quitar comprados</button>
+    </div>
+  </details>
+
   <details class="panel collapsible" id="foodsPanel">
     <summary><h2>🥗 Alimentos <small class="muted" id="foodCount"></small></h2></summary>
     <div><label for="foodSearch">Buscar alimento</label><input id="foodSearch" type="search" placeholder="Ej. pollo, avena…" autocomplete="off"></div>
