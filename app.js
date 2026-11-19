@@ -858,7 +858,26 @@ function renderMetrics() {
       `<small class="goal">${goalText}</small>` +
       `<div class="bar" role="progressbar" aria-label="${m.label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(Math.min(100, pct))}"><span style="width:${Math.min(100, pct)}%"></span></div></div>`;
   }).join('') + extrasLine(t);
+  renderMiniStatus(t);
 }
+
+function renderMiniStatus(t) {
+  const [k, p] = [MACROS[0], MACROS[1]];
+  const gk = goal(k), gp = goal(p);
+  const pct = gk ? (t.k / gk) * 100 : 0;
+  const over = pct > 105;
+  const left = over ? `excedido por ${round1(t.k - gk)}` : `faltan ${Math.max(0, round1(gk - t.k))}`;
+  $('miniStatus').innerHTML =
+    `<div class="mini-k${over ? ' over' : ''}"><b>🔥 ${round1(t.k)} / ${gk} kcal</b> · ${left}` +
+    `<div class="bar"><span style="width:${Math.min(100, pct)}%"></span></div></div>` +
+    `<div class="mini-p">🥩 ${round1(t.p)} / ${gp} g · faltan ${Math.max(0, round1(gp - t.p))}</div>`;
+}
+
+// Muestra la barra fija solo cuando el dashboard principal queda fuera de pantalla.
+const metricsObserver = new IntersectionObserver(([e]) => {
+  $('miniStatus').hidden = e.isIntersecting || e.boundingClientRect.top > 0;
+});
+metricsObserver.observe($('metrics'));
 
 function extrasLine(t) {
   const parts = EXTRAS.map(x => {
@@ -873,16 +892,28 @@ function extrasLine(t) {
 function renderMeals() {
   const day = entriesOn(dateKey(selectedDate));
   $('dayLabel').textContent = selectedDate.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  $('meals').innerHTML = MEALS.map(meal => {
+  const cards = MEALS.map((meal, i) => {
     const list = day.filter(e => e.meal === meal);
     const items = list.length
       ? list.map(e => `<div class="entry"><div>${esc(e.food)}<br><small>${esc(e.amount)} ${esc(e.unit)} · ${Math.round(e.k)} kcal · ${round1(e.p)} g proteína</small></div>` +
           `<div class="actions"><button class="secondary" data-edit="${esc(e.id)}" aria-label="Editar cantidad de ${esc(e.food)}">✎</button>` +
           `<button class="danger" data-del="${esc(e.id)}" aria-label="Eliminar ${esc(e.food)}">×</button></div></div>`).join('')
-      : '<p class="muted">Sin registros</p>';
-    return `<div class="meal"><div class="row"><b>${meal}</b><small>${Math.round(totals(list).k)} kcal</small></div>${items}</div>`;
-  }).join('');
+      : `<button class="secondary add-meal" data-add-meal="${esc(meal)}">＋ Agregar</button>`;
+    const t = totals(list);
+    const macros = list.length
+      ? `<div class="meal-macros"><span>P ${round1(t.p)} g</span><span>C ${round1(t.c)} g</span><span>G ${round1(t.f)} g</span></div>`
+      : '';
+    return `<details class="meal collapsible" style="order:${i}" data-meal="${esc(meal)}"${closedMeals.has(meal) ? '' : ' open'}><summary><div><div class="row"><b>${meal}</b>${list.length ? `<small>${Math.round(t.k)} kcal</small>` : ''}</div>${macros}</div></summary>${items}</details>`;
+  });
+  $('meals').innerHTML = cards.join('');
 }
+
+// Recuerda qué comidas están plegadas para que no se reabran al re-renderizar.
+const closedMeals = new Set();
+$('meals').addEventListener('toggle', e => {
+  const meal = e.target.dataset.meal;
+  if (meal) e.target.open ? closedMeals.delete(meal) : closedMeals.add(meal);
+}, true);
 
 function renderWeek() {
   const keys = weekKeys();
@@ -1165,6 +1196,12 @@ function bindEvents() {
   $('meals').onclick = e => {
     const edit = e.target.closest('[data-edit]');
     const del = e.target.closest('[data-del]');
+    const add = e.target.closest('[data-add-meal]');
+    if (add) {
+      $('meal').value = add.dataset.addMeal;
+      $('add').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('food').focus({ preventScroll: true });
+    }
     if (edit) editEntry(edit.dataset.edit);
     if (del) deleteEntry(del.dataset.del);
   };
