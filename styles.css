@@ -228,9 +228,27 @@ th { color: var(--muted); font-size: 12px; }
 .scan-manual { display: flex; gap: 8px; margin-top: 10px; }
 .scan-manual input { flex: 1; min-width: 0; }
 .scan-dialog { max-height: 92vh; overflow-y: auto; }
-.scan-results { display: grid; gap: 8px; margin-top: 10px; max-height: 38vh; overflow-y: auto; }
+.scan-results { display: grid; gap: 8px; margin-top: 10px; max-height: 34vh; overflow-y: auto; }
 .scan-results:empty { display: none; }
-.scan-result { width: 100%; text-align: left; color: var(--text); font-weight: 500; }
+.scan-result { width: 100%; text-align: left; color: var(--text); font-weight: 500; min-height: 52px; }
+.scan-result > span { display: grid; gap: 4px; min-width: 0; }
+.scan-result b { font-weight: 600; line-height: 1.25; }
+.scan-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.scan-chips i { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+.scan-chips i.off { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-weight: 500; }
+.scan-chips i.store { background: transparent; color: var(--muted); font-weight: 500; padding-left: 0; }
+.scan-state { text-align: center; padding: 12px 0; }
+.scan-skel { height: 52px; border-radius: 12px; background: linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2)); background-size: 200% 100%; animation: scan-shimmer 1.1s linear infinite; }
+@keyframes scan-shimmer { to { background-position: -200% 0; } }
+.scan-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.scan-head h3 { margin: 0; font-size: 17px; }
+.scan-dialog .scan-x { width: 36px; height: 36px; margin: 0; padding: 0; border-radius: 99px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); flex: none; }
+.scan-cam { position: relative; }
+.scan-cam[hidden] { display: none; }
+.scan-frame { position: absolute; inset: 22% 12%; border: 2px solid rgba(255, 255, 255, .75); border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 999px rgba(0, 0, 0, .25); }
+.scan-sep { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: var(--muted); font-size: 12px; }
+.scan-sep::before, .scan-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.scan-dialog input { font-size: 16px; }
 
 /* Instalación */
 .onb-footer .install-btn { padding: 12px; }

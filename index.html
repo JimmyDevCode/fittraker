@@ -172,15 +172,25 @@
   </section>
 
   <dialog class="scan-dialog" id="scanDialog" aria-label="Escanear código de barras">
-    <h3>📷 Código de barras</h3>
-    <video id="scanVideo" playsinline muted></video>
+    <div class="scan-head">
+      <h3>Añadir con código o nombre</h3>
+      <button type="button" class="scan-x" id="scanX" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="scan-cam" id="scanCam">
+      <video id="scanVideo" playsinline muted></video>
+      <div class="scan-frame" aria-hidden="true"></div>
+    </div>
     <p class="status" id="scanStatus" role="status"></p>
-    <form class="scan-manual" id="scanForm">
-      <input id="scanCode" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14" placeholder="O escribe los números de abajo del código" aria-label="Código de barras">
+    <form class="scan-manual" id="scanNameForm">
+      <input id="scanName" type="search" enterkeyhint="search" maxlength="60" placeholder="🔎 Buscar por nombre (ritz, leche gloria…)" aria-label="Buscar por nombre" autocomplete="off">
       <button type="submit">Buscar</button>
     </form>
-    <div class="scan-manual"><input id="scanName" type="search" maxlength="60" placeholder="O busca por nombre (ej. ritz, leche gloria)" aria-label="Buscar por nombre" autocomplete="off"></div>
-    <div class="scan-results" id="scanResults"></div>
+    <div class="scan-results" id="scanResults" aria-live="polite"></div>
+    <div class="scan-sep"><span>o con el código</span></div>
+    <form class="scan-manual" id="scanForm">
+      <input id="scanCode" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14" placeholder="Números bajo las barras" aria-label="Código de barras">
+      <button type="submit" class="secondary">Ir</button>
+    </form>
     <button type="button" class="secondary" id="scanClose">Cerrar</button>
   </dialog>
 

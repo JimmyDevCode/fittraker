@@ -1136,9 +1136,10 @@ async function startScan() {
   $('scanName').value = '';
   $('scanResults').innerHTML = '';
   setScanStatus('');
+  $('scanCam').hidden = false;
   $('scanDialog').showModal();
   if (!navigator.mediaDevices?.getUserMedia) {
-    setScanStatus('Este navegador no permite usar la cámara. Escribe el código.');
+    noCamera('Sin cámara disponible. Busca por nombre o escribe el código.');
     return;
   }
   try {
@@ -1157,8 +1158,14 @@ async function startScan() {
     }
   } catch {
     stopScan();
-    setScanStatus('No pude usar la cámara. Escribe el código.');
+    noCamera('No pude usar la cámara. Busca por nombre o escribe el código.');
   }
+}
+
+function noCamera(msg) {
+  $('scanCam').hidden = true;
+  setScanStatus(msg);
+  $('scanName').focus();
 }
 
 function showFoodForm(message) {
@@ -1241,22 +1248,26 @@ async function searchByName() {
   const q = $('scanName').value.trim();
   const box = $('scanResults');
   if (q.length < 2) { box.innerHTML = ''; return; }
-  box.innerHTML = '<p class="muted">Buscando…</p>';
+  box.innerHTML = '<div class="scan-skel"></div>'.repeat(3);
   try {
     const res = await fetch(`/api/tienda?q=${encodeURIComponent(q)}`);
     if (!res.ok) throw new Error();
     nameResults = (await res.json()).results || [];
   } catch {
-    box.innerHTML = '<p class="muted">📡 No pude buscar por nombre (sin internet o servicio no disponible).</p>';
+    box.innerHTML = '<p class="muted scan-state">📡 No pude buscar (sin internet o servicio caído). Toca Buscar para reintentar.</p>';
     return;
   }
+  nameResults.sort((a, b) => hasValue(b.per100?.k) - hasValue(a.per100?.k));
   box.innerHTML = nameResults.length
     ? nameResults.map((r, i) => {
-        const k = r.per100?.k;
-        const detail = [r.quantity, hasValue(k) ? `${round1(k)} kcal/100 g` : 'sin macros', r.store].filter(Boolean).join(' · ');
-        return `<button type="button" class="tpca-item scan-result" data-result="${i}"><span>${esc(r.name)}<small>${esc(detail)}</small></span></button>`;
+        const p = r.per100 || {};
+        const chips = hasValue(p.k)
+          ? `<i>${round1(p.k)} kcal</i><i>P ${round1(p.p ?? 0)}</i><i>C ${round1(p.c ?? 0)}</i><i>G ${round1(p.f ?? 0)}</i><i class="store">/100 g</i>`
+          : '<i class="off">sin macros · los completas tú</i>';
+        const meta = [r.quantity, r.store].filter(Boolean).map(esc).join(' · ');
+        return `<button type="button" class="tpca-item scan-result" data-result="${i}"><span><b>${esc(r.name)}</b><span class="scan-chips">${chips}</span>${meta ? `<small>${meta}</small>` : ''}</span><span aria-hidden="true">›</span></button>`;
       }).join('')
-    : '<p class="muted">Sin resultados. Prueba con otra palabra.</p>';
+    : '<p class="muted scan-state">Sin resultados para esa palabra. Prueba más corta (ej. "galleta").</p>';
 }
 
 // ---------- Acciones ----------
@@ -1389,6 +1400,8 @@ function bindEvents() {
   $('scanClose').onclick = closeScan;
   $('scanDialog').addEventListener('close', stopScan);
   $('scanName').oninput = () => { clearTimeout(nameTimer); nameTimer = setTimeout(searchByName, 450); };
+  $('scanNameForm').onsubmit = e => { e.preventDefault(); clearTimeout(nameTimer); searchByName(); $('scanName').blur(); };
+  $('scanX').onclick = closeScan;
   $('scanResults').onclick = e => {
     const b = e.target.closest('[data-result]');
     const r = b && nameResults[b.dataset.result];
