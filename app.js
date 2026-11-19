@@ -867,10 +867,12 @@ function renderMiniStatus(t) {
   const pct = gk ? (t.k / gk) * 100 : 0;
   const over = pct > 105;
   const left = over ? `excedido por ${round1(t.k - gk)}` : `faltan ${Math.max(0, round1(gk - t.k))}`;
+  const pctP = gp ? (t.p / gp) * 100 : 0;
   $('miniStatus').innerHTML =
-    `<div class="mini-k${over ? ' over' : ''}"><b>🔥 ${round1(t.k)} / ${gk} kcal</b> · ${left}` +
+    `<div class="mini-k${over ? ' over' : ''}"><b>🔥 ${round1(t.k)}<span class="muted"> / ${gk} kcal</span></b><small>${left}</small>` +
     `<div class="bar"><span style="width:${Math.min(100, pct)}%"></span></div></div>` +
-    `<div class="mini-p">🥩 ${round1(t.p)} / ${gp} g · faltan ${Math.max(0, round1(gp - t.p))}</div>`;
+    `<div class="mini-p"><b>🥩 ${round1(t.p)}<span class="muted"> / ${gp} g</span></b><small>faltan ${Math.max(0, round1(gp - t.p))}</small>` +
+    `<div class="bar"><span style="width:${Math.min(100, pctP)}%"></span></div></div>`;
 }
 
 // Muestra la barra fija solo cuando el dashboard principal queda fuera de pantalla.
@@ -1060,6 +1062,132 @@ function addFromCatalog(code) {
   $('tpcaStatus').textContent = `Agregado: ${x.name}. Ya está elegido en "Registrar alimento".`;
 }
 
+// ---------- Código de barras ----------
+
+const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+let scanStream = null;
+let scanRunning = false;
+let pendingFoodSource = null;
+
+const setScanStatus = text => { $('scanStatus').textContent = text; };
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.append(s);
+  });
+}
+
+// BarcodeDetector nativo (Chrome/Android); si no existe, ZXing cargado bajo demanda (Safari/iOS).
+async function makeDetector() {
+  if ('BarcodeDetector' in window) {
+    const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+    return async video => (await detector.detect(video))[0]?.rawValue;
+  }
+  if (!window.ZXing) await loadScript(ZXING_URL);
+  const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E]]]);
+  const reader = new ZXing.MultiFormatReader();
+  reader.setHints(hints);
+  const canvas = document.createElement('canvas');
+  return async video => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    try {
+      const bitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
+      return reader.decode(bitmap).getText();
+    } catch { return null; }
+  };
+}
+
+function stopScan() {
+  scanRunning = false;
+  scanStream?.getTracks().forEach(t => t.stop());
+  scanStream = null;
+  $('scanVideo').srcObject = null;
+}
+
+function closeScan() {
+  stopScan();
+  if ($('scanDialog').open) $('scanDialog').close();
+}
+
+async function startScan() {
+  $('scanCode').value = '';
+  setScanStatus('');
+  $('scanDialog').showModal();
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setScanStatus('Este navegador no permite usar la cámara. Escribe el código.');
+    return;
+  }
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+    if (!$('scanDialog').open) { stopScan(); return; }
+    const video = $('scanVideo');
+    video.srcObject = scanStream;
+    await video.play();
+    setScanStatus('Apunta al código de barras…');
+    scanRunning = true;
+    const detect = await makeDetector();
+    while (scanRunning) {
+      const code = await detect(video).catch(() => null);
+      if (code) { closeScan(); lookupBarcode(code); return; }
+      await new Promise(r => setTimeout(r, 250));
+    }
+  } catch {
+    stopScan();
+    setScanStatus('No pude usar la cámara. Escribe el código.');
+  }
+}
+
+function showFoodForm(message) {
+  $('foodsPanel').open = true;
+  $('foodForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  $('foodName').focus({ preventScroll: true });
+  $('status').textContent = message;
+}
+
+async function lookupBarcode(code) {
+  const mine = db.foods.find(f => f.active !== false && f.source?.includes(`EAN ${code}`));
+  if (mine) {
+    $('food').value = mine.id;
+    updateUnit(true);
+    $('status').textContent = `Ya lo tienes: ${mine.name}. Quedó elegido en "Registrar alimento".`;
+    $('add').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  $('status').textContent = 'Buscando producto…';
+  resetFoodForm();
+  pendingFoodSource = `Open Food Facts · EAN ${code}`;
+  let product = null;
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=product_name,brands,nutriments`);
+    const data = await res.json();
+    if (data.status === 1) product = data.product;
+  } catch {
+    showFoodForm('No pude consultar Open Food Facts (¿sin internet?). Puedes llenarlo a mano.');
+    return;
+  }
+  if (!product) {
+    showFoodForm(`No encontré el código ${code}. Llénalo a mano desde la etiqueta y quedará guardado con ese código.`);
+    return;
+  }
+  const n = product.nutriments || {};
+  const kcal = n['energy-kcal_100g'] ?? (n.energy_100g != null ? n.energy_100g / 4.184 : null);
+  const brand = product.brands?.split(',')[0]?.trim();
+  $('foodName').value = [product.product_name, brand].filter(Boolean).join(' · ');
+  $('foodUnit').value = 'g';
+  const values = { k: kcal, p: n.proteins_100g, c: n.carbohydrates_100g, f: n.fat_100g, fiber: n.fiber_100g, sugar: n.sugars_100g };
+  Object.entries(FOOD_INPUTS).forEach(([k, input]) => { $(input).value = hasValue(values[k]) ? round1(values[k]) : ''; });
+  const missing = ['k', 'p', 'c', 'f'].filter(k => !hasValue(values[k])).length;
+  showFoodForm(missing
+    ? 'Encontrado, pero faltan datos. Revisa la etiqueta y completa los macros (por 100 g).'
+    : 'Encontrado. Revisa los valores (por 100 g) y toca "Añadir alimento".');
+}
+
 // ---------- Acciones ----------
 
 let editingFoodId = null;
@@ -1069,6 +1197,7 @@ function startFoodEdit(id) {
   const food = db.foods.find(f => f.id === id);
   if (!food) return;
   editingFoodId = id;
+  pendingFoodSource = null;
   $('foodName').value = food.name;
   $('foodUnit').value = food.unit;
   Object.entries(FOOD_INPUTS).forEach(([k, input]) => { $(input).value = hasValue(food[k]) ? food[k] : ''; });
@@ -1081,6 +1210,7 @@ function startFoodEdit(id) {
 
 function resetFoodForm() {
   editingFoodId = null;
+  pendingFoodSource = null;
   $('foodForm').reset();
   $('foodFormTitle').textContent = 'Añadir alimento a mano';
   $('foodSubmit').textContent = 'Añadir alimento';
@@ -1098,7 +1228,7 @@ function saveFood() {
   };
   const old = editingFoodId && db.foods.find(f => f.id === editingFoodId);
   if (!old) {
-    change('Alimentos', { id: `${slug(name) || 'alimento'}-${Math.random().toString(36).slice(2, 6)}`, ...values, source: 'Manual', active: true });
+    change('Alimentos', { id: `${slug(name) || 'alimento'}-${Math.random().toString(36).slice(2, 6)}`, ...values, source: pendingFoodSource || 'Manual', active: true });
     resetFoodForm();
     return;
   }
@@ -1183,6 +1313,16 @@ function bindEvents() {
     $('foodsPanel').open = true;
     $('tpcaSearch').scrollIntoView({ behavior: 'smooth', block: 'center' });
     $('tpcaSearch').focus({ preventScroll: true });
+  };
+  $('openScan').onclick = startScan;
+  $('scanClose').onclick = closeScan;
+  $('scanDialog').addEventListener('close', stopScan);
+  $('scanForm').onsubmit = e => {
+    e.preventDefault();
+    const code = $('scanCode').value.trim();
+    if (!/^\d{8,14}$/.test(code)) { setScanStatus('El código debe tener entre 8 y 14 números.'); return; }
+    closeScan();
+    lookupBarcode(code);
   };
   $('tpcaResults').onclick = e => {
     const b = e.target.closest('[data-tpca]');

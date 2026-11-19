@@ -165,8 +165,22 @@
       <button type="submit">Agregar</button>
     </form>
     <p class="hint">Pollo en crudo · arroz y lentejas cocidos · avena seca · huevos por unidad. Los valores nutricionales son aproximados.</p>
-    <button class="link-btn catalog-link" id="openCatalog">🇵🇪 ¿No está en la lista? Búscalo en la Tabla Peruana de Alimentos</button>
+    <div class="add-tools">
+      <button type="button" class="secondary" id="openCatalog">🇵🇪 Buscar en Tabla Peruana</button>
+      <button type="button" class="secondary" id="openScan">📷 Escanear código de barras</button>
+    </div>
   </section>
+
+  <dialog class="scan-dialog" id="scanDialog" aria-label="Escanear código de barras">
+    <h3>📷 Código de barras</h3>
+    <video id="scanVideo" playsinline muted></video>
+    <p class="status" id="scanStatus" role="status"></p>
+    <form class="scan-manual" id="scanForm">
+      <input id="scanCode" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14" placeholder="O escribe los números de abajo del código" aria-label="Código de barras">
+      <button type="submit">Buscar</button>
+    </form>
+    <button type="button" class="secondary" id="scanClose">Cerrar</button>
+  </dialog>
 
   <section class="panel">
     <div class="row">
