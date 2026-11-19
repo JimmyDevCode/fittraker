@@ -1133,6 +1133,8 @@ function closeScan() {
 
 async function startScan() {
   $('scanCode').value = '';
+  $('scanName').value = '';
+  $('scanResults').innerHTML = '';
   setScanStatus('');
   $('scanDialog').showModal();
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -1177,31 +1179,84 @@ async function lookupBarcode(code) {
   }
   toast('🔎 Buscando producto…', 10000);
   resetFoodForm();
-  pendingFoodSource = `Open Food Facts · EAN ${code}`;
-  let product = null;
+  const sources = [];
+  let name = '';
+  let values = {};
+  let networkError = false;
+
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}?fields=product_name,brands,nutriments`);
     const data = await res.json();
-    if (data.status === 1) product = data.product;
-  } catch {
-    showFoodForm('📡 No pude consultar Open Food Facts (¿sin internet?). Puedes llenarlo a mano.');
+    if (data.status === 1) {
+      const n = data.product.nutriments || {};
+      const brand = data.product.brands?.split(',')[0]?.trim();
+      name = [data.product.product_name, brand].filter(Boolean).join(' · ');
+      values = {
+        k: n['energy-kcal_100g'] ?? (n.energy_100g != null ? n.energy_100g / 4.184 : null),
+        p: n.proteins_100g, c: n.carbohydrates_100g, f: n.fat_100g, fiber: n.fiber_100g, sugar: n.sugars_100g
+      };
+      sources.push('Open Food Facts');
+    }
+  } catch { networkError = true; }
+
+  // Si Open Food Facts no lo tiene o le faltan macros, completa con supermercados (/api/tienda).
+  if (!['k', 'p', 'c', 'f'].every(k => hasValue(values[k]))) {
+    try {
+      const res = await fetch(`/api/tienda?ean=${encodeURIComponent(code)}`);
+      const store = res.ok ? await res.json() : null;
+      if (store?.found) {
+        name ||= [store.name, store.brand].filter(Boolean).join(' · ');
+        Object.entries(store.per100 || {}).forEach(([k, v]) => { if (!hasValue(values[k]) && hasValue(v)) values[k] = v; });
+        sources.push(store.store);
+      }
+    } catch { networkError = true; }
+  }
+
+  if (!sources.length) {
+    pendingFoodSource = `Código de barras · EAN ${code}`;
+    showFoodForm(networkError
+      ? '📡 No pude consultar los catálogos (¿sin internet?). Puedes llenarlo a mano.'
+      : `❌ No encontré el código ${code}. Llénalo a mano desde la etiqueta y quedará guardado con ese código.`);
     return;
   }
-  if (!product) {
-    showFoodForm(`❌ No encontré el código ${code}. Llénalo a mano desde la etiqueta y quedará guardado con ese código.`);
-    return;
-  }
-  const n = product.nutriments || {};
-  const kcal = n['energy-kcal_100g'] ?? (n.energy_100g != null ? n.energy_100g / 4.184 : null);
-  const brand = product.brands?.split(',')[0]?.trim();
-  $('foodName').value = [product.product_name, brand].filter(Boolean).join(' · ');
+  presentFood(name, values, sources, code);
+}
+
+function presentFood(name, values, sources, code) {
+  resetFoodForm();
+  pendingFoodSource = `${sources.join(' + ')}${code ? ` · EAN ${code}` : ''}`;
+  $('foodName').value = name;
   $('foodUnit').value = 'g';
-  const values = { k: kcal, p: n.proteins_100g, c: n.carbohydrates_100g, f: n.fat_100g, fiber: n.fiber_100g, sugar: n.sugars_100g };
   Object.entries(FOOD_INPUTS).forEach(([k, input]) => { $(input).value = hasValue(values[k]) ? round1(values[k]) : ''; });
   const missing = ['k', 'p', 'c', 'f'].filter(k => !hasValue(values[k])).length;
   showFoodForm(missing
-    ? '⚠️ Encontrado, pero faltan datos. Revisa la etiqueta y completa los macros (por 100 g).'
-    : '✅ Encontrado. Revisa los valores (por 100 g) y toca "Añadir alimento".');
+    ? `⚠️ Encontrado en ${sources.join(' y ')}, pero faltan datos. Completa los macros desde la etiqueta (por 100 g).`
+    : `✅ Encontrado en ${sources.join(' y ')}. Revisa los valores (por 100 g) y toca "Añadir alimento".`);
+}
+
+let nameResults = [];
+let nameTimer;
+
+async function searchByName() {
+  const q = $('scanName').value.trim();
+  const box = $('scanResults');
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  box.innerHTML = '<p class="muted">Buscando…</p>';
+  try {
+    const res = await fetch(`/api/tienda?q=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error();
+    nameResults = (await res.json()).results || [];
+  } catch {
+    box.innerHTML = '<p class="muted">📡 No pude buscar por nombre (sin internet o servicio no disponible).</p>';
+    return;
+  }
+  box.innerHTML = nameResults.length
+    ? nameResults.map((r, i) => {
+        const k = r.per100?.k;
+        const detail = [r.quantity, hasValue(k) ? `${round1(k)} kcal/100 g` : 'sin macros', r.store].filter(Boolean).join(' · ');
+        return `<button type="button" class="tpca-item scan-result" data-result="${i}"><span>${esc(r.name)}<small>${esc(detail)}</small></span></button>`;
+      }).join('')
+    : '<p class="muted">Sin resultados. Prueba con otra palabra.</p>';
 }
 
 // ---------- Acciones ----------
@@ -1333,6 +1388,14 @@ function bindEvents() {
   $('openScan').onclick = startScan;
   $('scanClose').onclick = closeScan;
   $('scanDialog').addEventListener('close', stopScan);
+  $('scanName').oninput = () => { clearTimeout(nameTimer); nameTimer = setTimeout(searchByName, 450); };
+  $('scanResults').onclick = e => {
+    const b = e.target.closest('[data-result]');
+    const r = b && nameResults[b.dataset.result];
+    if (!r) return;
+    closeScan();
+    presentFood([r.name, r.brand].filter(Boolean).join(' · '), r.per100 || {}, [r.store], r.ean);
+  };
   $('scanForm').onsubmit = e => {
     e.preventDefault();
     const code = $('scanCode').value.trim();

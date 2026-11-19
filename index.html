@@ -179,6 +179,8 @@
       <input id="scanCode" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14" placeholder="O escribe los números de abajo del código" aria-label="Código de barras">
       <button type="submit">Buscar</button>
     </form>
+    <div class="scan-manual"><input id="scanName" type="search" maxlength="60" placeholder="O busca por nombre (ej. ritz, leche gloria)" aria-label="Buscar por nombre" autocomplete="off"></div>
+    <div class="scan-results" id="scanResults"></div>
     <button type="button" class="secondary" id="scanClose">Cerrar</button>
   </dialog>
 

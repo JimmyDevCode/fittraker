@@ -227,6 +227,10 @@ th { color: var(--muted); font-size: 12px; }
 .scan-dialog > button { width: 100%; margin-top: 10px; }
 .scan-manual { display: flex; gap: 8px; margin-top: 10px; }
 .scan-manual input { flex: 1; min-width: 0; }
+.scan-dialog { max-height: 92vh; overflow-y: auto; }
+.scan-results { display: grid; gap: 8px; margin-top: 10px; max-height: 38vh; overflow-y: auto; }
+.scan-results:empty { display: none; }
+.scan-result { width: 100%; text-align: left; color: var(--text); font-weight: 500; }
 
 /* Instalación */
 .onb-footer .install-btn { padding: 12px; }
