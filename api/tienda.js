@@ -8,6 +8,10 @@ const STORES = [
   { name: 'Metro', host: 'www.metro.pe' }
 ];
 
+// Solo secciones de comida y bebida sin alcohol (excluye Packs, licores, limpieza, etc.).
+const FOOD_SECTION = /^(abarrotes|frutas y verduras|congelados|quesos y fiambres|embutidos y fiambres|panader[ií]a y pasteler[ií]a|carnes, aves y pescados|l[aá]cteos( y huevos)?|desayunos?|mercado saludable|vive sano|aguas y bebidas|bebidas|pollo rostizado y comidas preparadas|comidas y rostizados)$/i;
+const isFood = p => (p.categories || []).some(c => FOOD_SECTION.test(c.split('/')[1] || ''));
+
 const first = v => (Array.isArray(v) ? v[0] : v);
 
 // "0. 5g", "92 KCAL", "6.5 g" → { value, unit }
@@ -59,7 +63,7 @@ async function search(store, q) {
   const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (FitTracker)' }, signal: AbortSignal.timeout(6000) });
   if (!res.ok) return [];
   const list = await res.json();
-  return Array.isArray(list) ? list.map(p => normalize(p, store.name)) : [];
+  return Array.isArray(list) ? list.filter(isFood).map(p => normalize(p, store.name)) : [];
 }
 
 async function handleSearch(q, res) {
