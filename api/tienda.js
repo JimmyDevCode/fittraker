@@ -8,8 +8,8 @@ const STORES = [
   { name: 'Metro', host: 'www.metro.pe' }
 ];
 
-// Solo secciones de comida y bebida sin alcohol (excluye Packs, licores, limpieza, etc.).
-const FOOD_SECTION = /^(abarrotes|frutas y verduras|congelados|quesos y fiambres|embutidos y fiambres|panader[ií]a y pasteler[ií]a|carnes, aves y pescados|l[aá]cteos( y huevos)?|desayunos?|mercado saludable|vive sano|aguas y bebidas|bebidas|pollo rostizado y comidas preparadas|comidas y rostizados)$/i;
+// Solo secciones de comida y bebida y alcohol (excluye Packs, limpieza, etc.).
+const FOOD_SECTION = /^(abarrotes|frutas y verduras|congelados|quesos y fiambres|embutidos y fiambres|panader[ií]a y pasteler[ií]a|carnes, aves y pescados|l[aá]cteos( y huevos)?|desayunos?|mercado saludable|vive sano|aguas y bebidas|bebidas|vinos, licores y cervezas|cervezas, vinos y licores|pollo rostizado y comidas preparadas|comidas y rostizados)$/i;
 const isFood = p => (p.categories || []).some(c => FOOD_SECTION.test(c.split('/')[1] || ''));
 
 const first = v => (Array.isArray(v) ? v[0] : v);
