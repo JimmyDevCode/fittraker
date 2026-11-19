@@ -1069,6 +1069,22 @@ let scanStream = null;
 let scanRunning = false;
 let pendingFoodSource = null;
 
+let toastTimer;
+function toast(text, ms = 5000) {
+  let el = $('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    document.body.append(el);
+  }
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
 const setScanStatus = text => { $('scanStatus').textContent = text; };
 
 function loadScript(src) {
@@ -1134,7 +1150,7 @@ async function startScan() {
     const detect = await makeDetector();
     while (scanRunning) {
       const code = await detect(video).catch(() => null);
-      if (code) { closeScan(); lookupBarcode(code); return; }
+      if (code) { navigator.vibrate?.(60); closeScan(); lookupBarcode(code); return; }
       await new Promise(r => setTimeout(r, 250));
     }
   } catch {
@@ -1147,7 +1163,7 @@ function showFoodForm(message) {
   $('foodsPanel').open = true;
   $('foodForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
   $('foodName').focus({ preventScroll: true });
-  $('status').textContent = message;
+  toast(message);
 }
 
 async function lookupBarcode(code) {
@@ -1155,11 +1171,11 @@ async function lookupBarcode(code) {
   if (mine) {
     $('food').value = mine.id;
     updateUnit(true);
-    $('status').textContent = `Ya lo tienes: ${mine.name}. Quedó elegido en "Registrar alimento".`;
+    toast(`✅ Ya lo tienes: ${mine.name}. Quedó elegido en "Registrar alimento".`);
     $('add').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
-  $('status').textContent = 'Buscando producto…';
+  toast('🔎 Buscando producto…', 10000);
   resetFoodForm();
   pendingFoodSource = `Open Food Facts · EAN ${code}`;
   let product = null;
@@ -1168,11 +1184,11 @@ async function lookupBarcode(code) {
     const data = await res.json();
     if (data.status === 1) product = data.product;
   } catch {
-    showFoodForm('No pude consultar Open Food Facts (¿sin internet?). Puedes llenarlo a mano.');
+    showFoodForm('📡 No pude consultar Open Food Facts (¿sin internet?). Puedes llenarlo a mano.');
     return;
   }
   if (!product) {
-    showFoodForm(`No encontré el código ${code}. Llénalo a mano desde la etiqueta y quedará guardado con ese código.`);
+    showFoodForm(`❌ No encontré el código ${code}. Llénalo a mano desde la etiqueta y quedará guardado con ese código.`);
     return;
   }
   const n = product.nutriments || {};
@@ -1184,8 +1200,8 @@ async function lookupBarcode(code) {
   Object.entries(FOOD_INPUTS).forEach(([k, input]) => { $(input).value = hasValue(values[k]) ? round1(values[k]) : ''; });
   const missing = ['k', 'p', 'c', 'f'].filter(k => !hasValue(values[k])).length;
   showFoodForm(missing
-    ? 'Encontrado, pero faltan datos. Revisa la etiqueta y completa los macros (por 100 g).'
-    : 'Encontrado. Revisa los valores (por 100 g) y toca "Añadir alimento".');
+    ? '⚠️ Encontrado, pero faltan datos. Revisa la etiqueta y completa los macros (por 100 g).'
+    : '✅ Encontrado. Revisa los valores (por 100 g) y toca "Añadir alimento".');
 }
 
 // ---------- Acciones ----------
